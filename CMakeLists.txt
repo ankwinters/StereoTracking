@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.3)
+project(poest)
+find_package( OpenCV REQUIRED )
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(SOURCE_FILES main.cpp pnp.cpp pnp.h)
+add_executable(poest ${SOURCE_FILES})
+target_link_libraries( poest ${OpenCV_LIBS} )
