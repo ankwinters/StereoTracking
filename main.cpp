@@ -1,6 +1,8 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/calib3d/calib3d.hpp>
 #include <iostream>
+
 #include "pnp.h"
 using namespace cv;
 using namespace std;
@@ -27,6 +29,13 @@ void drawPoints(cv::Mat image, std::vector<cv::Point2f> &list_points_2d, std::ve
   }
 }*/
 Mat image;
+vector<Point3f> world_coord;
+vector<Point2f> image_coord;
+Mat camera_matrix=(Mat_<double>(3,3)<< 489.0, 0, 319.5, 0, 489.0, 239.5, 0, 0, 1);
+Mat disto;
+Mat R;
+Mat t;
+
 
 void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 {
@@ -35,16 +44,36 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
 
         circle(image,Point(x,y),5,Scalar(0,0,255),-1);
+        if(image_coord.size()<4)
+        {
+            image_coord.push_back(Point2f(x, y));
+
+        }
+        else
+        {
+
+           solvePnPRansac(world_coord, image_coord, camera_matrix,disto,R,t);
+            cout<<"R matrix:"<<R<<endl;
+            cout<<"t matrix:"<<t<<endl;
+
+        }
+
     }
 }
 
 int main( int argc, char** argv)
 {
+
+
     if( argc != 2)
     {
         cout <<" Usage: display_image ImageToLoadAndDisplay" << endl;
         return -1;
     }
+    world_coord.push_back(Point3f(0,0,0));
+    world_coord.push_back(Point3f(0,0,4.6));
+    world_coord.push_back(Point3f(10.8,0,0));
+    world_coord.push_back(Point3f(10.8,29.8,4.6));
 
 
     image = imread(argv[1], CV_LOAD_IMAGE_COLOR);   // Read the file
@@ -58,6 +87,11 @@ int main( int argc, char** argv)
         imshow("PnP", image);                   // Show our image inside it.
 
     }
+    /*
+    image_coord.push_back(Point2f(0,3));
+    image_coord.push_back(Point2f(432,234));
+    for(auto item:image_coord)
+        cout<<item<<endl;
 
-    return 0;
+    return 0;*/
 }
