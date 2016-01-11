@@ -2,6 +2,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <iostream>
+#include <chrono>
 
 #include "pnp.h"
 using namespace cv;
@@ -31,8 +32,8 @@ void drawPoints(cv::Mat image, std::vector<cv::Point2f> &list_points_2d, std::ve
 Mat image;
 vector<Point3f> world_coord;
 vector<Point2f> image_coord;
-Mat camera_matrix=(Mat_<double>(3,3)<< 489.0, 0, 319.5, 0, 489.0, 239.5, 0, 0, 1);
-Mat disto;
+Mat camera_matrix=(Mat_<double>(3,3)<< 486.9, 0, 319.5, 0, 487.2, 239.5, 0, 0, 1);
+vector<double> disto;
 Mat R;
 Mat t;
 
@@ -42,19 +43,55 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
     if  ( event == EVENT_LBUTTONDOWN )
     {
         cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
-
-        circle(image,Point(x,y),5,Scalar(0,0,255),-1);
-        if(image_coord.size()<4)
+        if(image_coord.size()<world_coord.size())
         {
+            circle(image,Point(x,y),5,Scalar(0,0,255),-1);
             image_coord.push_back(Point2f(x, y));
+
+        }
+        else if(R.rows==0)
+        {
+           ///*counting time*/ std::chrono::time_point<std::chrono::system_clock> start, end;
+           Mat Rod;
+            //start=std::chrono::system_clock::now();
+            solvePnP(world_coord, image_coord, camera_matrix, disto, Rod, t, false, CV_EPNP);
+            //end=std::chrono::system_clock::now();
+            //std::chrono::duration<double> elapsed_seconds = end-start;
+            Rodrigues(Rod,R);
+            //cout<<"solvePnP ITER time:"<<elapsed_seconds.count()<<endl;
+            cout<<"R matrix:"<<R<<endl;
+            cout<<"t matrix:"<<t<<endl;
 
         }
         else
         {
 
-           solvePnPRansac(world_coord, image_coord, camera_matrix,disto,R,t);
-            cout<<"R matrix:"<<R<<endl;
-            cout<<"t matrix:"<<t<<endl;
+            Mat R_t;
+            hconcat(R,t,R_t);
+            cout<<"[R|t] = "<<R_t<<endl;
+
+            Mat d3_p1=(Mat_<double>(4,1) << 10.8, 29.8, 0, 1);
+            Mat d2_p1=camera_matrix*R_t;
+            d2_p1=d2_p1*d3_p1;
+            d2_p1=d2_p1/d2_p1.at<double>(2,0);
+
+            Mat d3_p2=(Mat_<double>(4,1)<<10.8,0,4.6,1);
+            Mat d2_p2=camera_matrix*R_t;
+            d2_p2=d2_p2*d3_p2;
+            d2_p2=d2_p2/d2_p2.at<double>(2,0);
+
+            Mat d3_p3=(Mat_<double>(4,1)<<2.7,0,4.3,1);
+            Mat d2_p3=camera_matrix*R_t;
+            d2_p3=d2_p3*d3_p3;
+            d2_p3=d2_p3/d2_p3.at<double>(2,0);
+
+
+            cout<<"p1 position:"<<d2_p1<<endl;
+            cout<<"p2 position:"<<d2_p2<<endl;
+
+            circle(image,Point(d2_p1.at<double>(0,0),d2_p1.at<double>(1,0)),5,Scalar(255,0,0),-1);
+            circle(image,Point(d2_p2.at<double>(0,0),d2_p2.at<double>(1,0)),5,Scalar(255,0,0),-1);
+            circle(image,Point(d2_p3.at<double>(0,0),d2_p3.at<double>(1,0)),5,Scalar(255,0,0),-1);
 
         }
 
@@ -71,6 +108,8 @@ int main( int argc, char** argv)
         return -1;
     }
     world_coord.push_back(Point3f(0,0,0));
+    world_coord.push_back(Point3f(0,29.8,0));
+    world_coord.push_back(Point3f(0,29.8,4.6));
     world_coord.push_back(Point3f(0,0,4.6));
     world_coord.push_back(Point3f(10.8,0,0));
     world_coord.push_back(Point3f(10.8,29.8,4.6));
@@ -82,7 +121,7 @@ int main( int argc, char** argv)
     namedWindow( "PnP", WINDOW_AUTOSIZE );// Create a window for display.
     //set the callback function for any mouse event
     setMouseCallback("PnP", CallBackFunc, NULL);
-    while(waitKey(20)<0)
+    while(waitKey(50)<0)
     {
         imshow("PnP", image);                   // Show our image inside it.
 
@@ -92,6 +131,8 @@ int main( int argc, char** argv)
     image_coord.push_back(Point2f(432,234));
     for(auto item:image_coord)
         cout<<item<<endl;
+        */
 
-    return 0;*/
+
+    return 0;
 }
