@@ -29,6 +29,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
     {
         cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
         //poseEst.PnPmethod(x,y);
+        poseEst.Featuremethod();
     }
 }
 

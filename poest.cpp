@@ -65,3 +65,29 @@ void Pose_est::PnPmethod(int x, int y)
 
     }
 }
+
+void Pose_est::Featuremethod()
+{
+    //1 initialize
+    int minHessian = 400;
+    SiftFeatureDetector sift_detect( minHessian );
+
+    //2detect
+    vector<KeyPoint> keypoints;
+    sift_detect.detect( image, keypoints );
+
+    //3 绘制特征点match
+    Mat siftImg;
+    drawKeypoints( image, keypoints, siftImg, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
+    imshow("Sift keypoints", siftImg );
+    cout<<"keypoint numbers of sift: "<<keypoints.size()<<endl;
+    /*Once again with ORB
+    OrbFeatureDetector orb_detect(minHessian);
+    orb_detect.detect(image ,keypoints);
+    Mat orbImg;
+    drawKeypoints(image, keypoints, orbImg, Scalar::all(-1), DrawMatchesFlags::DEFAULT);
+    imshow("ORB keypoints", orbImg);
+    cout<<"Keypoints of ORB number: "<<keypoints.size()<<endl;
+     */
+
+}
