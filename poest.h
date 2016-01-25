@@ -26,6 +26,7 @@ class Pose_est
 public:
     void PnPmethod(int x, int y);
     void Featuremethod();
+    void Pose_est::sift_sift_flann();
 private:
 
 

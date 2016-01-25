@@ -81,13 +81,18 @@ void Pose_est::Featuremethod()
     drawKeypoints( image, keypoints, siftImg, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
     imshow("Sift keypoints", siftImg );
     cout<<"keypoint numbers of sift: "<<keypoints.size()<<endl;
-    /*Once again with ORB
+    //Once again with ORB
     OrbFeatureDetector orb_detect(minHessian);
     orb_detect.detect(image ,keypoints);
     Mat orbImg;
     drawKeypoints(image, keypoints, orbImg, Scalar::all(-1), DrawMatchesFlags::DEFAULT);
     imshow("ORB keypoints", orbImg);
     cout<<"Keypoints of ORB number: "<<keypoints.size()<<endl;
-     */
+
+
+}
+
+void Pose_est::sift_sift_flann()
+{
 
 }

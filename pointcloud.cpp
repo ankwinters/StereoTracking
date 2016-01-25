@@ -5,14 +5,19 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/common/projection_matrix.h>
 
-
+/*
 int main (int argc, char** argv)
 {
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
-
-    if (pcl::io::loadPCDFile<pcl::PointXYZ> ("test_pcd.pcd", *cloud) == -1) //* load the file
+    if(argc!=2)
     {
-        PCL_ERROR ("Couldn't read file test_pcd.pcd \n");
+        std::cout<<"usage:poest <path to pcd file>"<<std::endl;
+        return -1;
+    }
+
+    if (pcl::io::loadPCDFile<pcl::PointXYZ> (argv[1], *cloud) == -1) //* load the file
+    {
+        PCL_ERROR ("Couldn't read pcd file \n");
         return (-1);
     }
     std::cout << "Loaded "
@@ -25,4 +30,4 @@ int main (int argc, char** argv)
         << " "    << cloud->points[i].z << std::endl;
 
     return (0);
-}
+}*/

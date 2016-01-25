@@ -33,7 +33,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         poseEst.Featuremethod();
     }
 }
-/*
+
 int main( int argc, char** argv)
 {
 
@@ -66,4 +66,4 @@ int main( int argc, char** argv)
 
 
     return 0;
-}*/
+}
