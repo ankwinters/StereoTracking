@@ -3,6 +3,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/core/core_c.h>
+#include <opencv2/imgproc/imgproc.hpp>
 #include "calibration.h"
 
 using namespace cv;
@@ -54,5 +55,17 @@ void CameraCalib::CalcBoardCornerPositions(Size board_size, float square_size, v
 
 void CameraCalib::SearchCorner(const Mat& view, const Size board_size, Mat& corners)
 {
-    findChessboardCorners(view, board_size, corners,CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK | CV_CALIB_CB_NORMALIZE_IMAGE);
+    bool found;
+    //Rough estimate
+    found=findChessboardCorners(view, board_size, corners,
+                                CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK | CV_CALIB_CB_NORMALIZE_IMAGE);
+    if (found)                // If done with success,
+    {
+        // improve the found corners' coordinate accuracy for chessboard
+
+            Mat viewGray;
+            cvtColor(view, viewGray, CV_BGR2GRAY);
+            cornerSubPix( viewGray, corners, Size(11,11),
+                          Size(-1,-1), TermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
+    }
 }
