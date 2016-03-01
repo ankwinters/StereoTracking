@@ -77,10 +77,12 @@ void Pose_est::Featuremethod()
     sift_detect.detect( image, keypoints );
 
     //3 绘制特征点match
+    /*
     Mat siftImg;
     drawKeypoints( image, keypoints, siftImg, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
     imshow("Sift keypoints", siftImg );
     cout<<"keypoint numbers of sift: "<<keypoints.size()<<endl;
+     */
     //Once again with ORB
     OrbFeatureDetector orb_detect(minHessian);
     orb_detect.detect(image ,keypoints);
@@ -91,6 +93,55 @@ void Pose_est::Featuremethod()
 
 
 }
+
+void Pose_est::ORB_matching(Mat &img1, Mat &img2)
+{
+    int minHessian = 400;
+    OrbFeatureDetector orb_detector(minHessian);
+    //Step1:feature detection
+    vector<KeyPoint> key_img1,key_img2;
+    orb_detector.detect(img1,key_img1);
+    orb_detector.detect(img2,key_img2);
+    //Step2:compute
+    OrbDescriptorExtractor orb_extractor;
+    Mat descrip_img1,descrip_img2;
+    orb_extractor.compute(img1,key_img1,descrip_img1);
+    orb_extractor.compute(img2,key_img2,descrip_img2);
+    //Step3:matching
+
+    //cout<<"Debug info!!!!!!!!"<<endl;
+    //FlannBasedMatcher matcher;
+    BFMatcher matcher;
+    std::vector< DMatch > matches;
+    cout<<"Debug info!!!!!!!!"<<endl;
+    matcher.match(descrip_img1,descrip_img2,matches);
+   /*  Step4:Find good match
+    double max_dist = 0; double min_dist = 100;
+    for( int i = 0; i < descrip_img1.rows; i++ )
+    {
+        double dist = matches[i].distance;
+        if( dist < min_dist ) min_dist = dist;
+        if( dist > max_dist ) max_dist = dist;
+    }
+
+    std::vector< DMatch > good_matches;
+    for( int i = 0; i < descrip_img1.rows; i++ )
+    { if( matches[i].distance <= max(2*min_dist, 0.02) )
+        { good_matches.push_back( matches[i]); }
+    }*/
+    //Step4:draw matches
+    Mat img_matches;
+    drawMatches( img1, key_img1, img2, key_img2,
+                 matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+                 vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+    imshow( "Good Matches", img_matches );
+
+    return;
+
+
+
+}
+
 
 void Pose_est::sift_sift_flann()
 {

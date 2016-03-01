@@ -26,7 +26,8 @@ class Pose_est
 public:
     void PnPmethod(int x, int y);
     void Featuremethod();
-    void Pose_est::sift_sift_flann();
+    void sift_sift_flann();
+    void ORB_matching(Mat &img1, Mat &img2);
 private:
 
 

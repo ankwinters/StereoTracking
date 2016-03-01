@@ -36,7 +36,7 @@ double CameraCalib::ComputeReprojErrors( const vector<vector<Point3f> >& object_
 
 
 void CameraCalib::CalcBoardCornerPositions(Size board_size, float square_size, vector<Point3f>& corners,
-                  Pattern pattern_type=CHESSBOARD)
+                  Pattern pattern_type)
 {
     corners.clear();
     if(pattern_type==CHESSBOARD)
@@ -53,7 +53,7 @@ void CameraCalib::CalcBoardCornerPositions(Size board_size, float square_size, v
 
 }
 
-void CameraCalib::SearchCorner(const Mat& view, const Size board_size, Mat& corners)
+bool CameraCalib::SearchCorner(const Mat& view, const Size board_size, Mat& corners)
 {
     bool found;
     //Rough estimate

@@ -5,7 +5,7 @@
 
 
 #include "poest.h"
-#include "pointcloud.h"
+//#include "pointcloud.h"
 using namespace cv;
 using namespace std;
 
@@ -21,7 +21,7 @@ vector<double> disto;
 Mat R;
 Mat t;
 
-Mat image;
+Mat image,img1,img2;
 Pose_est poseEst;
 
 void CallBackFunc(int event, int x, int y, int flags, void* userdata)
@@ -30,7 +30,8 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
     {
         cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
         //poseEst.PnPmethod(x,y);
-        poseEst.Featuremethod();
+        //poseEst.Featuremethod();
+        poseEst.ORB_matching(img1,img2);
     }
 }
 
@@ -38,7 +39,7 @@ int main( int argc, char** argv)
 {
 
 
-    if( argc != 2)
+    if( argc < 2)
     {
         cout <<" Usage: poest ImageToLoad" << endl;
         return -1;
@@ -52,7 +53,8 @@ int main( int argc, char** argv)
 
 
     image = imread(argv[1], CV_LOAD_IMAGE_COLOR);   // Read the file
-
+    img1=imread(argv[1],CV_LOAD_IMAGE_COLOR);
+    img2=imread(argv[2],CV_LOAD_IMAGE_COLOR);
 
     namedWindow( "PnP", WINDOW_AUTOSIZE );// Create a window for display.
     //set the callback function for any mouse event
