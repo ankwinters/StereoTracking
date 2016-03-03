@@ -3,6 +3,7 @@
 //
 #include "poest.h"
 #include <iostream>
+#include <algorithm>
 #include <chrono>
 using namespace std;
 void Pose_est::PnPmethod(int x, int y)
@@ -94,8 +95,9 @@ void Pose_est::Featuremethod()
 
 }
 
-void Pose_est::ORB_matching(Mat &img1, Mat &img2)
+void Pose_est::ORB_matching(Mat &img1, Mat &img2, int num_points)
 {
+
     int minHessian = 400;
     OrbFeatureDetector orb_detector(minHessian);
     //Step1:feature detection
@@ -113,9 +115,11 @@ void Pose_est::ORB_matching(Mat &img1, Mat &img2)
     //FlannBasedMatcher matcher;
     BFMatcher matcher;
     std::vector< DMatch > matches;
-    cout<<"Debug info!!!!!!!!"<<endl;
+    //cout<<"Debug info!!!!!!!!"<<endl;
     matcher.match(descrip_img1,descrip_img2,matches);
-   /*  Step4:Find good match
+     /* TB improved
+      * Step4:Find good match
+      * Temporarily method:
     double max_dist = 0; double min_dist = 100;
     for( int i = 0; i < descrip_img1.rows; i++ )
     {
@@ -128,22 +132,109 @@ void Pose_est::ORB_matching(Mat &img1, Mat &img2)
     for( int i = 0; i < descrip_img1.rows; i++ )
     { if( matches[i].distance <= max(2*min_dist, 0.02) )
         { good_matches.push_back( matches[i]); }
-    }*/
+    }
+    */
+    // Step4:Find good match
+    // Temporarily method:Get 10 of the least ones.
+    cout<<"debug info"<<endl;
+    sort(matches.begin(),matches.end(), [](DMatch i,DMatch j){return (i.distance<j.distance);});
+    cout<<"debug info"<<endl;
     //Step4:draw matches
+
+    vector< DMatch > good_matches;
+    good_matches.resize(num_points);
+    copy_n(matches.begin(),num_points,good_matches.begin());
+
+
     Mat img_matches;
     drawMatches( img1, key_img1, img2, key_img2,
-                 matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+                 good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
                  vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
     imshow( "Good Matches", img_matches );
 
     return;
 
-
-
 }
 
 
-void Pose_est::sift_sift_flann()
+void Pose_est::stereo_test(Mat &imgL, Mat &imgR)
 {
+
+    Mat imgDisparity16S = Mat( imgL.rows, imgL.cols, CV_16S );
+    Mat imgDisparity8U = Mat( imgL.rows, imgL.cols, CV_8UC1 );
+    int ndisparities=16*5;
+    int SADWindowSize=21;
+    StereoBM sbm(StereoBM::BASIC_PRESET,ndisparities,SADWindowSize);
+    sbm( imgL, imgR, imgDisparity16S, CV_16S );
+    double minVal=0;
+    double maxVal=0;
+    minMaxLoc( imgDisparity16S, &minVal, &maxVal );
+    cout<<"Min disp:"<<minVal<<" Max value: "<<maxVal<<endl;
+    //-- 4. Display it as a CV_8UC1 image
+    imgDisparity16S.convertTo( imgDisparity8U, CV_8UC1, 255/(maxVal - minVal));
+
+    const char *windowDisparity = "Disparity";
+    namedWindow( windowDisparity, WINDOW_NORMAL );
+    imshow( windowDisparity, imgDisparity8U );
+
+    //-- 5. Save the image
+    imwrite("SBM_sample.png", imgDisparity16S);
+
+
+
+    return ;
+}
+/*
+ * ImageProcess class
+ */
+bool ImageProcess::SliceImage(Mat &input, Mat &output)
+{
+
+    Mat gray;
+    Mat input_copy=input.clone();
+    cvtColor(input_copy, gray, CV_BGR2GRAY);
+    //Temporarily set threshold to 40
+    //To be modified by some advanced method
+    threshold(gray, gray,44, 255,THRESH_BINARY_INV); //Threshold the gray
+    //Make black to white and vice versa
+    bitwise_not(gray,gray);
+    //imshow("gray",gray);
+
+    vector<vector<cv::Point> > contours;
+
+    findContours( gray, contours, CV_RETR_LIST, CV_CHAIN_APPROX_NONE );
+
+    // iterate through each contour.
+    int largest_contour_index=0;
+    double largest_area=0;
+    Rect bounding_rect;
+
+    for( int i = 0; i< contours.size(); i++ )
+    {
+        //  Calc the area of contour
+
+        double a=contourArea( contours[i],false);
+        if(a>largest_area){
+            largest_area=a;
+            // Store the index of largest contour
+            largest_contour_index=i;
+            // Find the bounding rectangle for biggest contour
+            bounding_rect=boundingRect(contours[i]);
+        }
+    }
+
+
+/*
+    drawContours( input, contours,largest_contour_index, Scalar( 255,255,255));
+    rectangle(input, bounding_rect,  Scalar(0,255,0),2, 8,0);
+    namedWindow( "Display window", CV_WINDOW_AUTOSIZE );
+    imshow( "Display window", input );
+*/
+    input_copy=input.clone();
+    output=input_copy(bounding_rect);
+   // imshow("output",output);
+
+
+
 
 }

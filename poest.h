@@ -7,6 +7,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 #include <opencv2/nonfree/nonfree.hpp>
 #include <opencv2/features2d/features2d.hpp>
@@ -27,9 +28,30 @@ public:
     void PnPmethod(int x, int y);
     void Featuremethod();
     void sift_sift_flann();
-    void ORB_matching(Mat &img1, Mat &img2);
+    void ORB_matching(Mat &img1, Mat &img2,int num_points);
+    void stereo_test(Mat &img1, Mat &img2);
 private:
+    void SolvePnP();
 
 
 };
+// Preprocess of features matching
+// First,Slicing the two image to find the object contour
+
+class ImageProcess
+{
+public:
+    //ImageProcess(const Mat &color_image)
+
+    /* SliceImage:To detect the object from the both images.
+     * Some advanced skills TBD
+     * Shortage:partial detect impossible now.
+     */
+    bool SliceImage(Mat &input,Mat &output);
+
+private:
+
+    Mat gray_image;
+};
+
 #endif //POEST_PNP_H

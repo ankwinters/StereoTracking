@@ -21,8 +21,9 @@ vector<double> disto;
 Mat R;
 Mat t;
 
-Mat image,img1,img2;
+Mat image,imgL,imgR;
 Pose_est poseEst;
+ImageProcess imgprocess;
 
 void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 {
@@ -31,8 +32,21 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
         //poseEst.PnPmethod(x,y);
         //poseEst.Featuremethod();
-        poseEst.ORB_matching(img1,img2);
+        poseEst.ORB_matching(imgL,imgR,10);
+        //poseEst.stereo_test(imgL,imgR);
+        //imgprocess.SliceImage(imgL,image);
     }
+}
+
+inline void ReadImage(const char *URL1,const char *URL2)
+{
+    imgL=imread(URL1,CV_LOAD_IMAGE_COLOR);
+    imgR=imread(URL2,CV_LOAD_IMAGE_COLOR);
+    //imgL=imread(URL1,CV_LOAD_IMAGE_GRAYSCALE);
+    //imgR=imread(URL2,CV_LOAD_IMAGE_GRAYSCALE);
+    imgprocess.SliceImage(imgL,imgL);
+    imgprocess.SliceImage(imgR,imgR);
+
 }
 
 int main( int argc, char** argv)
@@ -53,8 +67,8 @@ int main( int argc, char** argv)
 
 
     image = imread(argv[1], CV_LOAD_IMAGE_COLOR);   // Read the file
-    img1=imread(argv[1],CV_LOAD_IMAGE_COLOR);
-    img2=imread(argv[2],CV_LOAD_IMAGE_COLOR);
+    ReadImage(argv[1],argv[2]);
+
 
     namedWindow( "PnP", WINDOW_AUTOSIZE );// Create a window for display.
     //set the callback function for any mouse event
