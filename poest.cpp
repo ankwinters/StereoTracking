@@ -219,15 +219,20 @@ void Pose_est::stereo_test(Mat &imgL, Mat &imgR)
 }
 
 bool Pose_est::stereo_construct(vector<Point2f> &matched_points_L, vector<Point2f> &matched_points_R,
-                                 vector<Point3f> &world_points,const double baseline)
+                                 vector<Point3f> &world_points,const double baseline,const double f)
 {
     int num_points=matched_points_L.size();
+    //Z=b*f/d
     for(int i=0;i<num_points;i++)
     {
-
+        double d=matched_points_L[i].x-matched_points_R[i].x;
+        double Z=baseline*f/d;
+        double Y=Z*matched_points_R[i].x/f;
+        double X=Z*matched_points_R[i].x/f;
+        world_points.push_back(Point3f(X,Y,Z));
     }
 
-    return false;
+    return true;
 }
 /*
  * ImageProcess class

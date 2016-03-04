@@ -31,7 +31,7 @@ public:
     void ORB_matching(Mat &img1, Mat &img2, int num_points,
                       vector<Point2f> &matched_points_L,vector<Point2f> &matched_points_R);
     bool stereo_construct(vector<Point2f> &matched_points_L,vector<Point2f> &matched_points_R,
-                          vector<Point3f> &world_points,const double baseline);
+                          vector<Point3f> &world_points,const double baseline,const double f);
     void stereo_test(Mat &img1, Mat &img2);
 private:
     void SolvePnP();
