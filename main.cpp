@@ -32,6 +32,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
         //poseEst.PnPmethod(x,y);
         //poseEst.Featuremethod();
+        poseEst.stereo_test(imgL,imgR);
         poseEst.ORB_matching(imgL,imgR,10);
         //poseEst.stereo_test(imgL,imgR);
         //imgprocess.SliceImage(imgL,image);
@@ -40,12 +41,16 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 
 inline void ReadImage(const char *URL1,const char *URL2)
 {
-    imgL=imread(URL1,CV_LOAD_IMAGE_COLOR);
-    imgR=imread(URL2,CV_LOAD_IMAGE_COLOR);
-    //imgL=imread(URL1,CV_LOAD_IMAGE_GRAYSCALE);
-    //imgR=imread(URL2,CV_LOAD_IMAGE_GRAYSCALE);
-    imgprocess.SliceImage(imgL,imgL);
-    imgprocess.SliceImage(imgR,imgR);
+    //imgL=imread(URL1,CV_LOAD_IMAGE_COLOR);
+    //imgR=imread(URL2,CV_LOAD_IMAGE_COLOR);
+
+    imgL=imread(URL1,CV_LOAD_IMAGE_GRAYSCALE);
+    imgR=imread(URL2,CV_LOAD_IMAGE_GRAYSCALE);
+
+    //imgprocess.SliceImage(imgL,imgL);
+    //imgprocess.SliceImage(imgR,imgR);
+
+
 
 }
 

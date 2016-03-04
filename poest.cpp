@@ -152,6 +152,8 @@ void Pose_est::ORB_matching(Mat &img1, Mat &img2, int num_points)
                  vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
     imshow( "Good Matches", img_matches );
 
+
+
     return;
 
 }
@@ -178,7 +180,7 @@ void Pose_est::stereo_test(Mat &imgL, Mat &imgR)
     imshow( windowDisparity, imgDisparity8U );
 
     //-- 5. Save the image
-    imwrite("SBM_sample.png", imgDisparity16S);
+    //imwrite("SBM_sample.png", imgDisparity16S);
 
 
 
