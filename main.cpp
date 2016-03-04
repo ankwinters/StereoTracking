@@ -2,7 +2,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <iostream>
-
+#include <fstream>
 
 #include "poest.h"
 //#include "pointcloud.h"
@@ -22,6 +22,7 @@ Mat R;
 Mat t;
 
 Mat image,imgL,imgR;
+vector<Point2f> matches_L,matches_R;
 Pose_est poseEst;
 ImageProcess imgprocess;
 
@@ -32,8 +33,19 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
         //poseEst.PnPmethod(x,y);
         //poseEst.Featuremethod();
-        poseEst.stereo_test(imgL,imgR);
-        poseEst.ORB_matching(imgL,imgR,10);
+        //poseEst.stereo_test(imgL,imgR);
+        poseEst.ORB_matching(imgL,imgR,10,matches_L,matches_R);
+        fstream file;
+        file.open("points.txt",std::fstream::in | std::fstream::out | std::fstream::trunc);
+        file<<"matched_points of the left image:"<<endl;
+        for(auto i:matches_L)
+            file<<i<<" ";
+        file<<endl<<"matched_points of the right image:"<<endl;
+        for(auto j:matches_R)
+            file<<j<<" ";
+        file<<endl;
+        file.close();
+
         //poseEst.stereo_test(imgL,imgR);
         //imgprocess.SliceImage(imgL,image);
     }

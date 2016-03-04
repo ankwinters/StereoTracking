@@ -3,6 +3,7 @@
 //
 #include "poest.h"
 #include <iostream>
+
 #include <algorithm>
 #include <chrono>
 using namespace std;
@@ -95,20 +96,21 @@ void Pose_est::Featuremethod()
 
 }
 
-void Pose_est::ORB_matching(Mat &img1, Mat &img2, int num_points)
+void Pose_est::ORB_matching(Mat &img1, Mat &img2, int num_points,
+                            vector<Point2f> &matched_points_L,vector<Point2f> &matched_points_R)
 {
 
     int minHessian = 400;
     OrbFeatureDetector orb_detector(minHessian);
     //Step1:feature detection
-    vector<KeyPoint> key_img1,key_img2;
-    orb_detector.detect(img1,key_img1);
-    orb_detector.detect(img2,key_img2);
+    vector<KeyPoint> key_imgL,key_imgR;
+    orb_detector.detect(img1,key_imgL);
+    orb_detector.detect(img2,key_imgR);
     //Step2:compute
     OrbDescriptorExtractor orb_extractor;
-    Mat descrip_img1,descrip_img2;
-    orb_extractor.compute(img1,key_img1,descrip_img1);
-    orb_extractor.compute(img2,key_img2,descrip_img2);
+    Mat descrip_imgL,descrip_imgR;
+    orb_extractor.compute(img1,key_imgL,descrip_imgL);
+    orb_extractor.compute(img2,key_imgR,descrip_imgR);
     //Step3:matching
 
     //cout<<"Debug info!!!!!!!!"<<endl;
@@ -116,12 +118,13 @@ void Pose_est::ORB_matching(Mat &img1, Mat &img2, int num_points)
     BFMatcher matcher;
     std::vector< DMatch > matches;
     //cout<<"Debug info!!!!!!!!"<<endl;
-    matcher.match(descrip_img1,descrip_img2,matches);
+    matcher.match(descrip_imgL,descrip_imgR,matches);
      /* TB improved
       * Step4:Find good match
-      * Temporarily method:
+      * Temporarily method:*/
+
     double max_dist = 0; double min_dist = 100;
-    for( int i = 0; i < descrip_img1.rows; i++ )
+    for( int i = 0; i < descrip_imgL.rows; i++ )
     {
         double dist = matches[i].distance;
         if( dist < min_dist ) min_dist = dist;
@@ -129,28 +132,56 @@ void Pose_est::ORB_matching(Mat &img1, Mat &img2, int num_points)
     }
 
     std::vector< DMatch > good_matches;
-    for( int i = 0; i < descrip_img1.rows; i++ )
-    { if( matches[i].distance <= max(2*min_dist, 0.02) )
+    for( int i = 0; i < descrip_imgR.rows; i++ )
+    { if( matches[i].distance <= max(2.4*min_dist, 0.02) )
         { good_matches.push_back( matches[i]); }
     }
-    */
+
     // Step4:Find good match
     // Temporarily method:Get 10 of the least ones.
-    cout<<"debug info"<<endl;
-    sort(matches.begin(),matches.end(), [](DMatch i,DMatch j){return (i.distance<j.distance);});
-    cout<<"debug info"<<endl;
+    //cout<<"debug info"<<endl;
+    //sort(matches.begin(),matches.end(), [](DMatch i,DMatch j){return (i.distance<j.distance);});
+    //cout<<"debug info"<<endl;
     //Step4:draw matches
+    //vector< DMatch > good_matches;
 
-    vector< DMatch > good_matches;
-    good_matches.resize(num_points);
-    copy_n(matches.begin(),num_points,good_matches.begin());
+    //good_matches.resize(num_points);
+    //copy_n(matches.begin(),num_points,good_matches.begin());
 
 
     Mat img_matches;
-    drawMatches( img1, key_img1, img2, key_img2,
+
+    drawMatches( img1, key_imgL, img2, key_imgR,
                  good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
                  vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
     imshow( "Good Matches", img_matches );
+
+    long num_matches = good_matches.size();
+    //Step5:Output the coordinates of matched points.
+    //vector<Point2f> key_points_L;
+    //vector<Point2f> key_points_R;
+    //KeyPoint::convert(key_imgL,key_points_L);
+    //KeyPoint::convert(key_imgR,key_points_R);
+    //vector<Point2f> matched_points_L;
+    //vector<Point2f> matched_points_R;
+
+    for (int i=0;i<num_matches;i++)
+    {
+        int idx_L=good_matches[i].trainIdx;
+        int idx_R=good_matches[i].queryIdx;
+        matched_points_L.push_back(key_imgL[idx_L].pt);
+        matched_points_R.push_back(key_imgR[idx_R].pt);
+    }
+    /*debug info
+     *
+    cout<<"matched_points of the left image:"<<endl;
+    for(auto i:matched_points_L)
+        cout<<i<<" ";
+    cout<<endl<<"matched_points of the right image:"<<endl;
+    for(auto j:matched_points_R)
+        cout<<j<<" ";
+    */
+
 
 
 
@@ -185,6 +216,18 @@ void Pose_est::stereo_test(Mat &imgL, Mat &imgR)
 
 
     return ;
+}
+
+bool Pose_est::stereo_construct(vector<Point2f> &matched_points_L, vector<Point2f> &matched_points_R,
+                                 vector<Point3f> &world_points,const double baseline)
+{
+    int num_points=matched_points_L.size();
+    for(int i=0;i<num_points;i++)
+    {
+
+    }
+
+    return false;
 }
 /*
  * ImageProcess class
@@ -240,3 +283,5 @@ bool ImageProcess::SliceImage(Mat &input, Mat &output)
 
 
 }
+
+
