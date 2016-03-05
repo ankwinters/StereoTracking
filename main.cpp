@@ -53,14 +53,16 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 
 inline void ReadImage(const char *URL1,const char *URL2)
 {
-    //imgL=imread(URL1,CV_LOAD_IMAGE_COLOR);
-    //imgR=imread(URL2,CV_LOAD_IMAGE_COLOR);
+    imgL=imread(URL1,CV_LOAD_IMAGE_COLOR);
+    imgR=imread(URL2,CV_LOAD_IMAGE_COLOR);
 
-    imgL=imread(URL1,CV_LOAD_IMAGE_GRAYSCALE);
-    imgR=imread(URL2,CV_LOAD_IMAGE_GRAYSCALE);
+    //imgL=imread(URL1,CV_LOAD_IMAGE_GRAYSCALE);
+    //imgR=imread(URL2,CV_LOAD_IMAGE_GRAYSCALE);
 
-    //imgprocess.SliceImage(imgL,imgL);
-    //imgprocess.SliceImage(imgR,imgR);
+    imgprocess.SliceImage(imgL,imgL);
+    imgprocess.SliceImage(imgR,imgR);
+    //imshow("imgL",imgL);
+    //imshow("imgR",imgR);
 
 
 

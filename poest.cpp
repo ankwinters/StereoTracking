@@ -122,7 +122,6 @@ void Pose_est::ORB_matching(Mat &img1, Mat &img2, int num_points,
      /* TB improved
       * Step4:Find good match
       * Temporarily method:*/
-
     double max_dist = 0; double min_dist = 100;
     for( int i = 0; i < descrip_imgL.rows; i++ )
     {
@@ -132,8 +131,9 @@ void Pose_est::ORB_matching(Mat &img1, Mat &img2, int num_points,
     }
 
     std::vector< DMatch > good_matches;
-    for( int i = 0; i < descrip_imgR.rows; i++ )
-    { if( matches[i].distance <= max(2.4*min_dist, 0.02) )
+    /************Big bug here:descrip_imgL not descrip_imgR**********/
+    for( int i = 0; i < descrip_imgL.rows; i++ )
+    { if( matches[i].distance <= max(2*min_dist, 0.02) )
         { good_matches.push_back( matches[i]); }
     }
 
@@ -147,10 +147,19 @@ void Pose_est::ORB_matching(Mat &img1, Mat &img2, int num_points,
 
     //good_matches.resize(num_points);
     //copy_n(matches.begin(),num_points,good_matches.begin());
+    /*debug info
+     *
+    cout<<"KeyPoints L:"<<key_imgL.size()<<"KeyPoints R:"<<key_imgR.size()<<endl;
+    cout<<"matches size:"<<matches.size()<<" Good matches size:"<<good_matches.size()<<endl;
 
+    for(auto i:matches)
+        if(i.queryIdx<0)
+            cout<<i.queryIdx<<" ";
+    cout<<endl;
+    */
 
     Mat img_matches;
-
+    //drawMatches(img2,key_imgR,img1,key_imgL,good_matches,img_matches);
     drawMatches( img1, key_imgL, img2, key_imgR,
                  good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
                  vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
@@ -167,8 +176,9 @@ void Pose_est::ORB_matching(Mat &img1, Mat &img2, int num_points,
 
     for (int i=0;i<num_matches;i++)
     {
-        int idx_L=good_matches[i].trainIdx;
-        int idx_R=good_matches[i].queryIdx;
+        //Tip:Queryidx refers the left input while trainIdx means the right.
+        int idx_L=good_matches[i].queryIdx;
+        int idx_R=good_matches[i].trainIdx;
         matched_points_L.push_back(key_imgL[idx_L].pt);
         matched_points_R.push_back(key_imgR[idx_R].pt);
     }
