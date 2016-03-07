@@ -14,14 +14,16 @@ using namespace std;
  *  Since K can be acquired by camera calibration with a chessboard
  *  A set of ways to estimate [R|t] are implemented.
  */
-vector<Point3f> world_coord;
-vector<Point2f> image_coord;
-Mat camera_matrix=(Mat_<double>(3,3)<< 486.9, 0, 319.5, 0, 487.2, 239.5, 0, 0, 1);
-vector<double> disto;
 Mat R;
 Mat t;
+Mat image;
+vector<Point3f> world_coord;
+vector<Point2f> image_coord;
+vector<double> disto;
 
-Mat image,imgL,imgR;
+
+
+Mat imgL,imgR;
 vector<Point2f> matches_L,matches_R;
 Pose_est poseEst;
 StereoImageProcess imgprocess;
@@ -35,6 +37,10 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         //poseEst.Featuremethod();
         //poseEst.stereo_test(imgL,imgR);
         imgprocess.ORB_matching(imgL,imgR,10,matches_L,matches_R);
+        poseEst.stereo_construct(matches_L,matches_R,world_coord,120.0,2.5);
+        poseEst.SolvePnP(matches_R,world_coord,R,t);
+
+        /**For debugging.Input all data into a file**/
         fstream file;
         file.open("points.txt",std::fstream::in | std::fstream::out | std::fstream::trunc);
         file<<"matched_points of the left image:"<<endl;
@@ -43,11 +49,15 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         file<<endl<<"matched_points of the right image:"<<endl;
         for(auto j:matches_R)
             file<<j<<" ";
+        file<<endl<<"3D reconstruction:"<<endl;
+        for(auto k:world_coord)
+            file<<k<<" ";
         file<<endl;
         file.close();
 
-        //poseEst.stereo_test(imgL,imgR);
-        //imgprocess.SliceImage(imgL,image);
+
+
+
     }
 }
 
@@ -60,7 +70,7 @@ inline void ReadImage(const char *URL1,const char *URL2)
     //imgR=imread(URL2,CV_LOAD_IMAGE_GRAYSCALE);
 
     imgprocess.ImageInput(imgL,imgL,imgR,imgR);
-    imgprocess.PrintCorners();
+    //imgprocess.PrintCorners();
 
     //imshow("imgL",imgL);
     //imshow("imgR",imgR);
@@ -75,15 +85,17 @@ int main( int argc, char** argv)
 
     if( argc < 2)
     {
-        cout <<" Usage: poest ImageToLoad" << endl;
+        cout <<" Usage: poest ImageToLoadL ImageToLoadR" << endl;
         return -1;
     }
+    /*
     world_coord.push_back(Point3f(0,0,0));
     world_coord.push_back(Point3f(0,29.8,0));
     world_coord.push_back(Point3f(0,29.8,4.6));
     world_coord.push_back(Point3f(0,0,4.6));
     world_coord.push_back(Point3f(10.8,0,0));
     world_coord.push_back(Point3f(10.8,29.8,4.6));
+     */
 
 
     image = imread(argv[1], CV_LOAD_IMAGE_COLOR);   // Read the file

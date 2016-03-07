@@ -7,68 +7,47 @@
 #include <algorithm>
 #include <chrono>
 using namespace std;
-void Pose_est::PnPmethod(int x, int y)
-{
-    if(image_coord.size()<world_coord.size())
-    {
-        /* To collect enough 2D-plane counterparts of the points in 3D space.
-         */
-        circle(image,Point(x,y),5,Scalar(0,0,255),-1);
-        image_coord.push_back(Point2f(x, y));
 
+bool Pose_est::stereo_construct(vector<Point2f> &matched_points_L, vector<Point2f> &matched_points_R,
+                                vector<Point3f> &world_points,const double baseline,const double f)
+{
+    size_t num_points=matched_points_L.size();
+    double pixel_size=4.65e-3;
+    //Z=b*f/d
+    double d,Z,Y,X;
+    for(size_t i=0;i<num_points;i++)
+    {
+        d=matched_points_L[i].x-matched_points_R[i].x;
+        Z=baseline*f/(d*pixel_size);
+        Y=Z*matched_points_R[i].y*pixel_size/f;
+        X=Z*matched_points_R[i].x*pixel_size/f;
+        world_points.push_back(Point3f(X,Y,Z));
     }
 
-    if(image_coord.size()==world_coord.size() && R.rows==0)
+    return true;
+}
+void Pose_est::SolvePnP(const vector<Point2f> &image_coords, const vector<Point3f> &world_coords, Mat &R_mat, Mat &t_vec)
+{
+    if(image_coords.size()==world_coords.size() && R_mat.rows==0)
     {
         /* When there are enough points collected,
          * calculate the matrix R|t with PnP algorithm
          */
         ///*counting time*/ std::chrono::time_point<std::chrono::system_clock> start, end;
-        Mat Rod;
+        Mat R_Rod;
         //start=std::chrono::system_clock::now();
-        solvePnP(world_coord, image_coord, camera_matrix, disto, Rod, t, false, CV_EPNP);
+        solvePnP(world_coords, image_coords, camera_matrix, disto, R_Rod, t_vec, false, CV_EPNP);
         //end=std::chrono::system_clock::now();
         //std::chrono::duration<double> elapsed_seconds = end-start;
-        Rodrigues(Rod,R);
+        Rodrigues(R_Rod,R_mat);
         //cout<<"solvePnP ITER time:"<<elapsed_seconds.count()<<endl;
-        cout<<"R matrix:"<<R<<endl;
-        cout<<"t matrix:"<<t<<endl;
+        cout<<"R matrix:"<<R_mat<<endl;
+        cout<<"t matrix:"<<t_vec<<endl;
 
     }
-    if(R.rows>0)
-    {
 
-        Mat R_t;
-        hconcat(R,t,R_t);
-        cout<<"[R|t] = "<<R_t<<endl;
-
-        Mat d3_p1=(Mat_<double>(4,1) << 10.8, 29.8, 0, 1);
-        Mat d2_p1=camera_matrix*R_t;
-        d2_p1=d2_p1*d3_p1;
-        d2_p1=d2_p1/d2_p1.at<double>(2,0);
-
-        Mat d3_p2=(Mat_<double>(4,1)<<10.8,0,4.6,1);
-        Mat d2_p2=camera_matrix*R_t;
-        d2_p2=d2_p2*d3_p2;
-        d2_p2=d2_p2/d2_p2.at<double>(2,0);
-
-        Mat d3_p3=(Mat_<double>(4,1)<<2.7,0,4.3,1);
-        Mat d2_p3=camera_matrix*R_t;
-        d2_p3=d2_p3*d3_p3;
-        d2_p3=d2_p3/d2_p3.at<double>(2,0);
-
-
-        cout<<"p1 position:"<<d2_p1<<endl;
-        cout<<"p2 position:"<<d2_p2<<endl;
-
-        circle(image,Point(d2_p1.at<double>(0,0),d2_p1.at<double>(1,0)),5,Scalar(255,0,0),-1);
-        circle(image,Point(d2_p2.at<double>(0,0),d2_p2.at<double>(1,0)),5,Scalar(255,0,0),-1);
-        circle(image,Point(d2_p3.at<double>(0,0),d2_p3.at<double>(1,0)),5,Scalar(255,0,0),-1);
-
-    }
 }
-
-void Pose_est::Featuremethod()
+void Pose_est::Featuremethod(Mat &image)
 {
     //1 initialize
     int minHessian = 400;
@@ -95,8 +74,6 @@ void Pose_est::Featuremethod()
 
 
 }
-
-
 
 
 void Pose_est::stereo_test(Mat &imgL, Mat &imgR)
@@ -127,28 +104,13 @@ void Pose_est::stereo_test(Mat &imgL, Mat &imgR)
     return ;
 }
 
-bool Pose_est::stereo_construct(vector<Point2f> &matched_points_L, vector<Point2f> &matched_points_R,
-                                 vector<Point3f> &world_points,const double baseline,const double f)
-{
-    int num_points=matched_points_L.size();
-    //Z=b*f/d
-    for(int i=0;i<num_points;i++)
-    {
-        double d=matched_points_L[i].x-matched_points_R[i].x;
-        double Z=baseline*f/d;
-        double Y=Z*matched_points_R[i].x/f;
-        double X=Z*matched_points_R[i].x/f;
-        world_points.push_back(Point3f(X,Y,Z));
-    }
 
-    return true;
-}
 /*
  * ImageProcess class
  */
 
 
-bool StereoImageProcess::SliceImage(const Mat &input, Mat &output, Point2i &top_left)
+bool StereoImageProcess::SliceImage(const Mat &input, Mat &output, Point2f &top_left)
 {
 
     Mat gray;
@@ -284,8 +246,8 @@ void StereoImageProcess::ORB_matching(Mat &img1, Mat &img2, int num_points,
         //Tip:Queryidx refers the left input while trainIdx means the right.
         int idx_L=good_matches[i].queryIdx;
         int idx_R=good_matches[i].trainIdx;
-        matched_points_L.push_back(key_imgL[idx_L].pt);
-        matched_points_R.push_back(key_imgR[idx_R].pt);
+        matched_points_L.push_back(key_imgL[idx_L].pt+corner_L);
+        matched_points_R.push_back(key_imgR[idx_R].pt+corner_R);
     }
     /*debug info
      *
@@ -313,8 +275,11 @@ bool StereoImageProcess::ImageInput(const Mat &img_L, Mat &out_img_L,const Mat &
 
 void StereoImageProcess::PrintCorners()
 {
+
     cout<<"Corners for imgL:"<<corner_L<<endl;
 
     cout<<"Corners for imgR:"<<corner_R<<endl;
 
 }
+
+
