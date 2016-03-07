@@ -96,8 +96,113 @@ void Pose_est::Featuremethod()
 
 }
 
-void Pose_est::ORB_matching(Mat &img1, Mat &img2, int num_points,
-                            vector<Point2f> &matched_points_L,vector<Point2f> &matched_points_R)
+
+
+
+void Pose_est::stereo_test(Mat &imgL, Mat &imgR)
+{
+
+    Mat imgDisparity16S = Mat( imgL.rows, imgL.cols, CV_16S );
+    Mat imgDisparity8U = Mat( imgL.rows, imgL.cols, CV_8UC1 );
+    int ndisparities=16*5;
+    int SADWindowSize=21;
+    StereoBM sbm(StereoBM::BASIC_PRESET,ndisparities,SADWindowSize);
+    sbm( imgL, imgR, imgDisparity16S, CV_16S );
+    double minVal=0;
+    double maxVal=0;
+    minMaxLoc( imgDisparity16S, &minVal, &maxVal );
+    cout<<"Min disp:"<<minVal<<" Max value: "<<maxVal<<endl;
+    //-- 4. Display it as a CV_8UC1 image
+    imgDisparity16S.convertTo( imgDisparity8U, CV_8UC1, 255/(maxVal - minVal));
+
+    const char *windowDisparity = "Disparity";
+    namedWindow( windowDisparity, WINDOW_NORMAL );
+    imshow( windowDisparity, imgDisparity8U );
+
+    //-- 5. Save the image
+    //imwrite("SBM_sample.png", imgDisparity16S);
+
+
+
+    return ;
+}
+
+bool Pose_est::stereo_construct(vector<Point2f> &matched_points_L, vector<Point2f> &matched_points_R,
+                                 vector<Point3f> &world_points,const double baseline,const double f)
+{
+    int num_points=matched_points_L.size();
+    //Z=b*f/d
+    for(int i=0;i<num_points;i++)
+    {
+        double d=matched_points_L[i].x-matched_points_R[i].x;
+        double Z=baseline*f/d;
+        double Y=Z*matched_points_R[i].x/f;
+        double X=Z*matched_points_R[i].x/f;
+        world_points.push_back(Point3f(X,Y,Z));
+    }
+
+    return true;
+}
+/*
+ * ImageProcess class
+ */
+
+
+bool StereoImageProcess::SliceImage(const Mat &input, Mat &output, Point2i &top_left)
+{
+
+    Mat gray;
+    Mat input_copy=input.clone();
+    cvtColor(input_copy, gray, CV_BGR2GRAY);
+    //Temporarily set threshold to 40
+    //To be modified by some advanced method
+    threshold(gray, gray,44, 255,THRESH_BINARY_INV); //Threshold the gray
+    //Make black to white and vice versa
+    bitwise_not(gray,gray);
+    //imshow("gray",gray);
+
+    vector<vector<cv::Point> > contours;
+
+    findContours( gray, contours, CV_RETR_LIST, CV_CHAIN_APPROX_NONE );
+
+    // iterate through each contour.
+    int largest_contour_index=0;
+    double largest_area=0;
+    Rect bounding_rect;
+
+    for( int i = 0; i< contours.size(); i++ )
+    {
+        //  Calc the area of contour
+
+        double a=contourArea( contours[i],false);
+        if(a>largest_area){
+            largest_area=a;
+            // Store the index of largest contour
+            largest_contour_index=i;
+            // Find the bounding rectangle for biggest contour
+            bounding_rect=boundingRect(contours[i]);
+            top_left=bounding_rect.tl();
+        }
+    }
+
+
+/*
+    drawContours( input, contours,largest_contour_index, Scalar( 255,255,255));
+    rectangle(input, bounding_rect,  Scalar(0,255,0),2, 8,0);
+    namedWindow( "Display window", CV_WINDOW_AUTOSIZE );
+    imshow( "Display window", input );
+*/
+    input_copy=input.clone();
+    output=input_copy(bounding_rect);
+   // imshow("output",output);
+
+
+
+
+}
+
+void StereoImageProcess::ORB_matching(Mat &img1, Mat &img2, int num_points,
+                                vector<Point2f> &matched_points_L,vector<Point2f> &matched_points_R)
 {
 
     int minHessian = 400;
@@ -119,9 +224,9 @@ void Pose_est::ORB_matching(Mat &img1, Mat &img2, int num_points,
     std::vector< DMatch > matches;
     //cout<<"Debug info!!!!!!!!"<<endl;
     matcher.match(descrip_imgL,descrip_imgR,matches);
-     /* TB improved
-      * Step4:Find good match
-      * Temporarily method:*/
+    /* TB improved
+     * Step4:Find good match
+     * Temporarily method:*/
     double max_dist = 0; double min_dist = 100;
     for( int i = 0; i < descrip_imgL.rows; i++ )
     {
@@ -200,103 +305,16 @@ void Pose_est::ORB_matching(Mat &img1, Mat &img2, int num_points,
 }
 
 
-void Pose_est::stereo_test(Mat &imgL, Mat &imgR)
+bool StereoImageProcess::ImageInput(const Mat &img_L, Mat &out_img_L,const Mat &img_R,Mat &out_img_R)
 {
-
-    Mat imgDisparity16S = Mat( imgL.rows, imgL.cols, CV_16S );
-    Mat imgDisparity8U = Mat( imgL.rows, imgL.cols, CV_8UC1 );
-    int ndisparities=16*5;
-    int SADWindowSize=21;
-    StereoBM sbm(StereoBM::BASIC_PRESET,ndisparities,SADWindowSize);
-    sbm( imgL, imgR, imgDisparity16S, CV_16S );
-    double minVal=0;
-    double maxVal=0;
-    minMaxLoc( imgDisparity16S, &minVal, &maxVal );
-    cout<<"Min disp:"<<minVal<<" Max value: "<<maxVal<<endl;
-    //-- 4. Display it as a CV_8UC1 image
-    imgDisparity16S.convertTo( imgDisparity8U, CV_8UC1, 255/(maxVal - minVal));
-
-    const char *windowDisparity = "Disparity";
-    namedWindow( windowDisparity, WINDOW_NORMAL );
-    imshow( windowDisparity, imgDisparity8U );
-
-    //-- 5. Save the image
-    //imwrite("SBM_sample.png", imgDisparity16S);
-
-
-
-    return ;
+    return ( SliceImage(img_L,out_img_L,this->corner_L) &&
+             SliceImage(img_R,out_img_R,this->corner_R)  );
 }
 
-bool Pose_est::stereo_construct(vector<Point2f> &matched_points_L, vector<Point2f> &matched_points_R,
-                                 vector<Point3f> &world_points,const double baseline,const double f)
+void StereoImageProcess::PrintCorners()
 {
-    int num_points=matched_points_L.size();
-    //Z=b*f/d
-    for(int i=0;i<num_points;i++)
-    {
-        double d=matched_points_L[i].x-matched_points_R[i].x;
-        double Z=baseline*f/d;
-        double Y=Z*matched_points_R[i].x/f;
-        double X=Z*matched_points_R[i].x/f;
-        world_points.push_back(Point3f(X,Y,Z));
-    }
+    cout<<"Corners for imgL:"<<corner_L<<endl;
 
-    return true;
-}
-/*
- * ImageProcess class
- */
-bool ImageProcess::SliceImage(Mat &input, Mat &output)
-{
-
-    Mat gray;
-    Mat input_copy=input.clone();
-    cvtColor(input_copy, gray, CV_BGR2GRAY);
-    //Temporarily set threshold to 40
-    //To be modified by some advanced method
-    threshold(gray, gray,44, 255,THRESH_BINARY_INV); //Threshold the gray
-    //Make black to white and vice versa
-    bitwise_not(gray,gray);
-    //imshow("gray",gray);
-
-    vector<vector<cv::Point> > contours;
-
-    findContours( gray, contours, CV_RETR_LIST, CV_CHAIN_APPROX_NONE );
-
-    // iterate through each contour.
-    int largest_contour_index=0;
-    double largest_area=0;
-    Rect bounding_rect;
-
-    for( int i = 0; i< contours.size(); i++ )
-    {
-        //  Calc the area of contour
-
-        double a=contourArea( contours[i],false);
-        if(a>largest_area){
-            largest_area=a;
-            // Store the index of largest contour
-            largest_contour_index=i;
-            // Find the bounding rectangle for biggest contour
-            bounding_rect=boundingRect(contours[i]);
-        }
-    }
-
-
-/*
-    drawContours( input, contours,largest_contour_index, Scalar( 255,255,255));
-    rectangle(input, bounding_rect,  Scalar(0,255,0),2, 8,0);
-    namedWindow( "Display window", CV_WINDOW_AUTOSIZE );
-    imshow( "Display window", input );
-*/
-    input_copy=input.clone();
-    output=input_copy(bounding_rect);
-   // imshow("output",output);
-
-
-
+    cout<<"Corners for imgR:"<<corner_R<<endl;
 
 }
-
-

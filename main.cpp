@@ -24,7 +24,7 @@ Mat t;
 Mat image,imgL,imgR;
 vector<Point2f> matches_L,matches_R;
 Pose_est poseEst;
-ImageProcess imgprocess;
+StereoImageProcess imgprocess;
 
 void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 {
@@ -34,7 +34,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         //poseEst.PnPmethod(x,y);
         //poseEst.Featuremethod();
         //poseEst.stereo_test(imgL,imgR);
-        poseEst.ORB_matching(imgL,imgR,10,matches_L,matches_R);
+        imgprocess.ORB_matching(imgL,imgR,10,matches_L,matches_R);
         fstream file;
         file.open("points.txt",std::fstream::in | std::fstream::out | std::fstream::trunc);
         file<<"matched_points of the left image:"<<endl;
@@ -59,8 +59,9 @@ inline void ReadImage(const char *URL1,const char *URL2)
     //imgL=imread(URL1,CV_LOAD_IMAGE_GRAYSCALE);
     //imgR=imread(URL2,CV_LOAD_IMAGE_GRAYSCALE);
 
-    imgprocess.SliceImage(imgL,imgL);
-    imgprocess.SliceImage(imgR,imgR);
+    imgprocess.ImageInput(imgL,imgL,imgR,imgR);
+    imgprocess.PrintCorners();
+
     //imshow("imgL",imgL);
     //imshow("imgR",imgR);
 

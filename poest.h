@@ -28,8 +28,7 @@ public:
     void PnPmethod(int x, int y);
     void Featuremethod();
     void sift_sift_flann();
-    void ORB_matching(Mat &img1, Mat &img2, int num_points,
-                      vector<Point2f> &matched_points_L,vector<Point2f> &matched_points_R);
+
     bool stereo_construct(vector<Point2f> &matched_points_L,vector<Point2f> &matched_points_R,
                           vector<Point3f> &world_points,const double baseline,const double f);
     void stereo_test(Mat &img1, Mat &img2);
@@ -41,7 +40,7 @@ private:
 // Preprocess of features matching
 // First,Slicing the two image to find the object contour
 
-class ImageProcess
+class StereoImageProcess
 {
 public:
     //ImageProcess(const Mat &color_image)
@@ -50,11 +49,18 @@ public:
      * Some advanced skills TBD
      * Shortage:partial detect impossible now.
      */
-    bool SliceImage(Mat &input,Mat &output);
+    bool ImageInput(const Mat &img_L, Mat &out_img_L,const Mat &img_R,Mat &out_img_R);
+    bool SliceImage(const Mat &input, Mat &output, Point2i &top_left);
+    void ORB_matching(Mat &img1, Mat &img2, int num_points,
+                      vector<Point2f> &matched_points_L,vector<Point2f> &matched_points_R);
+
+    void PrintCorners();
+
 
 private:
-
-    Mat gray_image;
+    bool DetectObject(Mat &src_img,Mat &obj_img);
+    Point2i corner_L;
+    Point2i corner_R;
 };
 
 #endif //POEST_PNP_H
