@@ -16,25 +16,29 @@
 using namespace cv;
 
 
-Mat camera_matrix=(Mat_<double>(3,3)<< 586.7, 0., 399.5,
-        0., 586.4,299.5,
-        0., 0., 1.);
+//Mat camera_mat=(Mat_<double>(3,3)<< 586.7, 0., 399.5,
+//        0., 586.4,299.5,
+//        0., 0., 1.);
 
 class Pose_est
 {
 public:
+    bool SetCameraMatrix(const Mat & camera_mat);
 
     void PnPmethod(int x, int y);
     void Featuremethod(Mat &image);
 
     void SolvePnP(const vector<Point2f> &image_coords,const vector<Point3f> &world_coords,
-                  Mat &R,Mat &t);
+                  vector<double> &disto,Mat &R,Mat &t);
 
     bool stereo_construct(vector<Point2f> &matched_points_L,vector<Point2f> &matched_points_R,
                           vector<Point3f> &world_points,const double baseline,const double f);
     void stereo_test(Mat &img1, Mat &img2);
 private:
-
+    
+    Mat camera_matrix=(Mat_<double>(3,3)<< 586.7, 0., 399.5,
+            0., 586.4,299.5,
+            0., 0., 1.);
 
 
 };

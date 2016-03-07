@@ -38,7 +38,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         //poseEst.stereo_test(imgL,imgR);
         imgprocess.ORB_matching(imgL,imgR,10,matches_L,matches_R);
         poseEst.stereo_construct(matches_L,matches_R,world_coord,120.0,2.5);
-        poseEst.SolvePnP(matches_R,world_coord,R,t);
+        poseEst.SolvePnP(matches_R,world_coord,disto,R,t);
 
         /**For debugging.Input all data into a file**/
         fstream file;
@@ -54,9 +54,6 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
             file<<k<<" ";
         file<<endl;
         file.close();
-
-
-
 
     }
 }
@@ -88,15 +85,6 @@ int main( int argc, char** argv)
         cout <<" Usage: poest ImageToLoadL ImageToLoadR" << endl;
         return -1;
     }
-    /*
-    world_coord.push_back(Point3f(0,0,0));
-    world_coord.push_back(Point3f(0,29.8,0));
-    world_coord.push_back(Point3f(0,29.8,4.6));
-    world_coord.push_back(Point3f(0,0,4.6));
-    world_coord.push_back(Point3f(10.8,0,0));
-    world_coord.push_back(Point3f(10.8,29.8,4.6));
-     */
-
 
     image = imread(argv[1], CV_LOAD_IMAGE_COLOR);   // Read the file
     ReadImage(argv[1],argv[2]);

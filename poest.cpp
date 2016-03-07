@@ -26,7 +26,8 @@ bool Pose_est::stereo_construct(vector<Point2f> &matched_points_L, vector<Point2
 
     return true;
 }
-void Pose_est::SolvePnP(const vector<Point2f> &image_coords, const vector<Point3f> &world_coords, Mat &R_mat, Mat &t_vec)
+void Pose_est::SolvePnP(const vector<Point2f> &image_coords, const vector<Point3f> &world_coords,
+                        vector<double> &disto,Mat &R_mat, Mat &t_vec)
 {
     if(image_coords.size()==world_coords.size() && R_mat.rows==0)
     {
@@ -36,7 +37,7 @@ void Pose_est::SolvePnP(const vector<Point2f> &image_coords, const vector<Point3
         ///*counting time*/ std::chrono::time_point<std::chrono::system_clock> start, end;
         Mat R_Rod;
         //start=std::chrono::system_clock::now();
-        solvePnP(world_coords, image_coords, camera_matrix, disto, R_Rod, t_vec, false, CV_EPNP);
+        solvePnP(world_coords, image_coords, this->camera_matrix, disto, R_Rod, t_vec, false, CV_EPNP);
         //end=std::chrono::system_clock::now();
         //std::chrono::duration<double> elapsed_seconds = end-start;
         Rodrigues(R_Rod,R_mat);
