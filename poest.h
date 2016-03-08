@@ -57,7 +57,7 @@ public:
     //ImageProcess(const Mat &color_image)
 
 
-    bool ImageInput(const Mat &img_L, Mat &out_img_L,const Mat &img_R,Mat &out_img_R);
+    bool ImageInput(const Mat &img_L, Mat &out_img_L,  const Mat &img_R,Mat &out_img_R);
     /* SliceImage:To detect the object from the both images.
      * Some advanced skills TBD
      * Shortage:partial detect impossible now.
@@ -70,7 +70,7 @@ public:
 private:
     bool SliceImage(const Mat &input, Mat &output, Point2f &top_left);
     bool DetectObject(Mat &src_img,Mat &obj_img);
-    bool FindGoodMatches(const vector<DMatch> &raw_matches, const Mat &img_descrip, vector<DMatch> &good_matches);
+    bool FindGoodMatches(vector<DMatch> &raw_matches, const Mat &img_descrip, int num_points, vector<DMatch> &good_matches);
 
     Point2f corner_L;
     Point2f corner_R;

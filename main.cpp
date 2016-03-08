@@ -36,7 +36,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         //poseEst.PnPmethod(x,y);
         //poseEst.Featuremethod();
         //poseEst.stereo_test(imgL,imgR);
-        imgprocess.ORB_Matching(imgL,imgR,10,matches_L,matches_R);
+        imgprocess.ORB_Matching(imgL,imgR,5,matches_L,matches_R);
         poseEst.stereo_construct(matches_L,matches_R,world_coord,120.0,2.5);
         poseEst.SolvePnP(matches_R,world_coord,disto,R,t);
 

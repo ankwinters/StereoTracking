@@ -155,7 +155,8 @@ void StereoImageProcess::ORB_Matching(Mat &img_L, Mat &img_R, int num_points,
 
     //cout<<"Debug info!!!!!!!!"<<endl;
     //FlannBasedMatcher matcher;
-    BFMatcher matcher;
+
+    BFMatcher matcher(NORM_HAMMING);
     std::vector< DMatch > matches;
     //cout<<"Debug info!!!!!!!!"<<endl;
     matcher.match(descrip_imgL,descrip_imgR,matches);
@@ -163,7 +164,7 @@ void StereoImageProcess::ORB_Matching(Mat &img_L, Mat &img_R, int num_points,
      * Step4:Find good match
      */
     vector< DMatch > good_matches;
-    FindGoodMatches(matches,descrip_imgL,good_matches);
+    FindGoodMatches(matches,descrip_imgL,num_points,good_matches);
 
 
 
@@ -262,40 +263,32 @@ void StereoImageProcess::Featuremethod(Mat &image)
 }
 
 
-bool StereoImageProcess::FindGoodMatches(const vector<DMatch> &raw_matches, const Mat &img_descrip,vector<DMatch> &good_matches)
+bool StereoImageProcess::FindGoodMatches(vector<DMatch> &raw_matches,const Mat &img_descrip,
+                                         int num_points,vector<DMatch> &good_matches)
 {
-    double max_dist = 0; double min_dist = 100;
-    for( int i = 0; i < img_descrip.rows; i++ )
-    {
-        double dist = raw_matches[i].distance;
-        if( dist < min_dist ) min_dist = dist;
-        if( dist > max_dist ) max_dist = dist;
-    }
 
-    /************Big bug here:descrip_imgL not descrip_imgR**********/
-    for( int i = 0; i < img_descrip.rows; i++ )
-    { if( raw_matches[i].distance <= max(3*min_dist, 0.02) )
-        { good_matches.push_back( raw_matches[i]); }
-    }
-    /* Step4:Find good match
+
+
+    // Step4:Find good match
     // Temporarily method:Get 10 of the least ones.
     //cout<<"debug info"<<endl;
-    //sort(matches.begin(),matches.end(), [](DMatch i,DMatch j){return (i.distance<j.distance);});
+    sort(raw_matches.begin(),raw_matches.end(), [](DMatch i,DMatch j){return (i.distance<j.distance);});
     //cout<<"debug info"<<endl;
     //Step4:draw matches
     //vector< DMatch > good_matches;
 
     //good_matches.resize(num_points);
     //copy_n(matches.begin(),num_points,good_matches.begin());
-    /*debug info
-     *
-    cout<<"KeyPoints L:"<<key_imgL.size()<<"KeyPoints R:"<<key_imgR.size()<<endl;
-    cout<<"matches size:"<<matches.size()<<" Good matches size:"<<good_matches.size()<<endl;
+    //debug info
 
-    for(auto i:matches)
-        if(i.queryIdx<0)
-            cout<<i.queryIdx<<" ";
-    cout<<endl;
-    */
+    for(int i=0;i<num_points;i++)
+    {
+        good_matches.push_back(raw_matches[i]);
+    }
+
+
+
+
+
     return true;
 }
