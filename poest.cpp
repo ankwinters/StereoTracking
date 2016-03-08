@@ -3,12 +3,10 @@
 //
 #include "poest.h"
 #include <iostream>
-
-#include <algorithm>
 #include <chrono>
 using namespace std;
 
-bool Pose_est::stereo_construct(vector<Point2f> &matched_points_L, vector<Point2f> &matched_points_R,
+bool Pose_est::stereo_construct(const vector<Point2f> &matched_points_L, const vector<Point2f> &matched_points_R,
                                 vector<Point3f> &world_points,const double baseline,const double f)
 {
     size_t num_points=matched_points_L.size();
@@ -48,33 +46,7 @@ void Pose_est::SolvePnP(const vector<Point2f> &image_coords, const vector<Point3
     }
 
 }
-void Pose_est::Featuremethod(Mat &image)
-{
-    //1 initialize
-    int minHessian = 400;
-    SiftFeatureDetector sift_detect( minHessian );
 
-    //2detect
-    vector<KeyPoint> keypoints;
-    sift_detect.detect( image, keypoints );
-
-    //3 绘制特征点match
-    /*
-    Mat siftImg;
-    drawKeypoints( image, keypoints, siftImg, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
-    imshow("Sift keypoints", siftImg );
-    cout<<"keypoint numbers of sift: "<<keypoints.size()<<endl;
-     */
-    //Once again with ORB
-    OrbFeatureDetector orb_detect(minHessian);
-    orb_detect.detect(image ,keypoints);
-    Mat orbImg;
-    drawKeypoints(image, keypoints, orbImg, Scalar::all(-1), DrawMatchesFlags::DEFAULT);
-    imshow("ORB keypoints", orbImg);
-    cout<<"Keypoints of ORB number: "<<keypoints.size()<<endl;
-
-
-}
 
 
 void Pose_est::stereo_test(Mat &imgL, Mat &imgR)
@@ -122,7 +94,7 @@ bool StereoImageProcess::SliceImage(const Mat &input, Mat &output, Point2f &top_
     threshold(gray, gray,44, 255,THRESH_BINARY_INV); //Threshold the gray
     //Make black to white and vice versa
     bitwise_not(gray,gray);
-    //imshow("gray",gray);
+    imshow("gray",gray);
 
     vector<vector<cv::Point> > contours;
 
@@ -164,7 +136,7 @@ bool StereoImageProcess::SliceImage(const Mat &input, Mat &output, Point2f &top_
 
 }
 
-void StereoImageProcess::ORB_matching(Mat &img1, Mat &img2, int num_points,
+void StereoImageProcess::ORB_Matching(Mat &img_L, Mat &img_R, int num_points,
                                 vector<Point2f> &matched_points_L,vector<Point2f> &matched_points_R)
 {
 
@@ -172,13 +144,13 @@ void StereoImageProcess::ORB_matching(Mat &img1, Mat &img2, int num_points,
     OrbFeatureDetector orb_detector(minHessian);
     //Step1:feature detection
     vector<KeyPoint> key_imgL,key_imgR;
-    orb_detector.detect(img1,key_imgL);
-    orb_detector.detect(img2,key_imgR);
+    orb_detector.detect(img_L,key_imgL);
+    orb_detector.detect(img_R,key_imgR);
     //Step2:compute
     OrbDescriptorExtractor orb_extractor;
     Mat descrip_imgL,descrip_imgR;
-    orb_extractor.compute(img1,key_imgL,descrip_imgL);
-    orb_extractor.compute(img2,key_imgR,descrip_imgR);
+    orb_extractor.compute(img_L,key_imgL,descrip_imgL);
+    orb_extractor.compute(img_R,key_imgR,descrip_imgR);
     //Step3:matching
 
     //cout<<"Debug info!!!!!!!!"<<endl;
@@ -189,46 +161,17 @@ void StereoImageProcess::ORB_matching(Mat &img1, Mat &img2, int num_points,
     matcher.match(descrip_imgL,descrip_imgR,matches);
     /* TB improved
      * Step4:Find good match
-     * Temporarily method:*/
-    double max_dist = 0; double min_dist = 100;
-    for( int i = 0; i < descrip_imgL.rows; i++ )
-    {
-        double dist = matches[i].distance;
-        if( dist < min_dist ) min_dist = dist;
-        if( dist > max_dist ) max_dist = dist;
-    }
+     */
+    vector< DMatch > good_matches;
+    FindGoodMatches(matches,descrip_imgL,good_matches);
 
-    std::vector< DMatch > good_matches;
-    /************Big bug here:descrip_imgL not descrip_imgR**********/
-    for( int i = 0; i < descrip_imgL.rows; i++ )
-    { if( matches[i].distance <= max(2*min_dist, 0.02) )
-        { good_matches.push_back( matches[i]); }
-    }
 
-    // Step4:Find good match
-    // Temporarily method:Get 10 of the least ones.
-    //cout<<"debug info"<<endl;
-    //sort(matches.begin(),matches.end(), [](DMatch i,DMatch j){return (i.distance<j.distance);});
-    //cout<<"debug info"<<endl;
-    //Step4:draw matches
-    //vector< DMatch > good_matches;
 
-    //good_matches.resize(num_points);
-    //copy_n(matches.begin(),num_points,good_matches.begin());
-    /*debug info
-     *
-    cout<<"KeyPoints L:"<<key_imgL.size()<<"KeyPoints R:"<<key_imgR.size()<<endl;
-    cout<<"matches size:"<<matches.size()<<" Good matches size:"<<good_matches.size()<<endl;
 
-    for(auto i:matches)
-        if(i.queryIdx<0)
-            cout<<i.queryIdx<<" ";
-    cout<<endl;
-    */
 
     Mat img_matches;
-    //drawMatches(img2,key_imgR,img1,key_imgL,good_matches,img_matches);
-    drawMatches( img1, key_imgL, img2, key_imgR,
+    //drawMatches(img_R,key_imgR,img_L,key_imgL,good_matches,img_matches);
+    drawMatches( img_L, key_imgL, img_R, key_imgR,
                  good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
                  vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
     imshow( "Good Matches", img_matches );
@@ -284,3 +227,75 @@ void StereoImageProcess::PrintCorners()
 }
 
 
+
+bool StereoImageProcess::DetectObject(Mat &src_img, Mat &obj_img)
+{
+    return false;
+}
+
+void StereoImageProcess::Featuremethod(Mat &image)
+{
+    //1 initialize
+    int minHessian = 400;
+    SiftFeatureDetector sift_detect( minHessian );
+
+    //2detect
+    vector<KeyPoint> keypoints;
+    sift_detect.detect( image, keypoints );
+
+    //3 绘制特征点match
+    /*
+    Mat siftImg;
+    drawKeypoints( image, keypoints, siftImg, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
+    imshow("Sift keypoints", siftImg );
+    cout<<"keypoint numbers of sift: "<<keypoints.size()<<endl;
+     */
+    //Once again with ORB
+    OrbFeatureDetector orb_detect(minHessian);
+    orb_detect.detect(image ,keypoints);
+    Mat orbImg;
+    drawKeypoints(image, keypoints, orbImg, Scalar::all(-1), DrawMatchesFlags::DEFAULT);
+    imshow("ORB keypoints", orbImg);
+    cout<<"Keypoints of ORB number: "<<keypoints.size()<<endl;
+
+
+}
+
+
+bool StereoImageProcess::FindGoodMatches(const vector<DMatch> &raw_matches, const Mat &img_descrip,vector<DMatch> &good_matches)
+{
+    double max_dist = 0; double min_dist = 100;
+    for( int i = 0; i < img_descrip.rows; i++ )
+    {
+        double dist = raw_matches[i].distance;
+        if( dist < min_dist ) min_dist = dist;
+        if( dist > max_dist ) max_dist = dist;
+    }
+
+    /************Big bug here:descrip_imgL not descrip_imgR**********/
+    for( int i = 0; i < img_descrip.rows; i++ )
+    { if( raw_matches[i].distance <= max(3*min_dist, 0.02) )
+        { good_matches.push_back( raw_matches[i]); }
+    }
+    /* Step4:Find good match
+    // Temporarily method:Get 10 of the least ones.
+    //cout<<"debug info"<<endl;
+    //sort(matches.begin(),matches.end(), [](DMatch i,DMatch j){return (i.distance<j.distance);});
+    //cout<<"debug info"<<endl;
+    //Step4:draw matches
+    //vector< DMatch > good_matches;
+
+    //good_matches.resize(num_points);
+    //copy_n(matches.begin(),num_points,good_matches.begin());
+    /*debug info
+     *
+    cout<<"KeyPoints L:"<<key_imgL.size()<<"KeyPoints R:"<<key_imgR.size()<<endl;
+    cout<<"matches size:"<<matches.size()<<" Good matches size:"<<good_matches.size()<<endl;
+
+    for(auto i:matches)
+        if(i.queryIdx<0)
+            cout<<i.queryIdx<<" ";
+    cout<<endl;
+    */
+    return true;
+}
