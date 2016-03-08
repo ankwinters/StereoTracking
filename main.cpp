@@ -36,7 +36,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         //poseEst.PnPmethod(x,y);
         //poseEst.Featuremethod();
         //poseEst.stereo_test(imgL,imgR);
-        imgprocess.ORB_matching(imgL,imgR,10,matches_L,matches_R);
+        imgprocess.ORB_Matching(imgL,imgR,10,matches_L,matches_R);
         poseEst.stereo_construct(matches_L,matches_R,world_coord,120.0,2.5);
         poseEst.SolvePnP(matches_R,world_coord,disto,R,t);
 
@@ -86,10 +86,10 @@ int main( int argc, char** argv)
         return -1;
     }
 
-    image = imread(argv[1], CV_LOAD_IMAGE_COLOR);   // Read the file
+
     ReadImage(argv[1],argv[2]);
 
-
+    image = imread(argv[1], CV_LOAD_IMAGE_COLOR);   // Read the file
     namedWindow( "PnP", WINDOW_AUTOSIZE );// Create a window for display.
     //set the callback function for any mouse event
     setMouseCallback("PnP", CallBackFunc, NULL);
