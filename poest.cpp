@@ -26,7 +26,7 @@ bool BasicImageProcess::DetectExtract( const Mat &img,vector<KeyPoint> &key_poin
 }
 void BasicImageProcess::BasicMatching(Mat &img_1, Mat &img_2, int max_points,
                                          vector<KeyPoint> &key_img1,vector<KeyPoint> &key_img2,
-                                         Mat &descrip_1,Mat &descrip_2,
+                                         Mat &descrip_1,Mat &descrip_2, vector< DMatch > &good_matches,
                                          vector<Point2f> &matched_points_1, vector<Point2f> &matched_points_2)
 {
     DetectExtract(img_1, key_img1, descrip_1);
@@ -44,8 +44,7 @@ void BasicImageProcess::BasicMatching(Mat &img_1, Mat &img_2, int max_points,
     /* TB improved
      * Step4:Find good match
      */
-    vector< DMatch > good_matches;
-    FindGoodMatches(matches,descrip_1,max_points,good_matches);
+    FindGoodMatches(matches,key_img1,key_img2,max_points,good_matches);
     Mat img_matches;
     //drawMatches(img_2,key_imgR,img_1,key_imgL,good_matches,img_matches);
     drawMatches( img_1, key_img1, img_2, key_img2,
@@ -58,7 +57,6 @@ void BasicImageProcess::BasicMatching(Mat &img_1, Mat &img_2, int max_points,
     return;
 
 }
-
 
 
 
@@ -116,29 +114,41 @@ bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2f &top_l
 }
 
 
-bool BasicImageProcess::FindGoodMatches(vector<DMatch> &raw_matches,const Mat &img_descrip,
+bool BasicImageProcess::FindGoodMatches(vector<DMatch> &raw_matches,const vector<KeyPoint> &query_pts,
+                                        const vector<KeyPoint> &train_pts,
                                         int num_points,vector<DMatch> &good_matches)
 {
-    // Step4:Find good match
-    // Temporarily method:Get 10 of the least ones.
-    //cout<<"debug info"<<endl;
-    sort(raw_matches.begin(),raw_matches.end(), [](DMatch i,DMatch j){return (i.distance<j.distance);});
-    //cout<<"debug info"<<endl;
-    //Step4:draw matches
-    //vector< DMatch > good_matches;
-
-    //good_matches.resize(num_points);
-    //copy_n(matches.begin(),num_points,good_matches.begin());
-    //debug info
-
-    for(int i=0;i<num_points;i++)
+    //Define error=(y1-y2)/y1*100%
+    //Then error<threshold should be determined.
+    double threshold=0.02;
+    vector<Point2f> matches_1;
+    vector<Point2f> matches_2;
+    for( int i = 0; i < raw_matches.size(); i++ )
     {
-        good_matches.push_back(raw_matches[i]);
+        matches_1.push_back(query_pts[ raw_matches[i].queryIdx ].pt );
+        matches_2.push_back(train_pts[ raw_matches[i].trainIdx ].pt );
     }
 
+    for (int i=0;i<matches_1.size();i++)
+    {
+        double y1=matches_1[i].y;
+        double y2=matches_2[i].y;
+        double diff=((y1-y2)<0)?(y2-y1):(y1-y2);
+        if( diff/y1<threshold )
+            good_matches.push_back(raw_matches[i]);
+    }
 
-
-
+    //Mask returned by findHomography is an 8-bit, single-channel cv::Mat
+    //(or std::vector<uchar>, if you prefer) containing either 0 or 1 indicating the outlier status.
+    /*
+    vector<unsigned char> mask;
+    Mat h = cv::findHomography(matches_1,matches_2,CV_RANSAC,0.5,mask);
+    for(int i=0;i<matches_1.size();i++)
+    {
+        if(mask.at(i)!=0)
+            good_matches.push_back(raw_matches[i]);
+    }
+     */
 
     return true;
 }
@@ -226,8 +236,8 @@ bool StereoImageProcess::StereoConstruct(const vector<Point2f> &matched_points_L
     {
         d=matched_points_L[i].x-matched_points_R[i].x;
         Z=baseline*f/(d*pixel_size);
-        Y=Z*matched_points_R[i].y*pixel_size/f;
-        X=Z*matched_points_R[i].x*pixel_size/f;
+        Y=Z*matched_points_L[i].y*pixel_size/f;
+        X=Z*matched_points_L[i].x*pixel_size/f;
         world_points.push_back(Point3f(X,Y,Z));
     }
 
@@ -262,14 +272,62 @@ void StereoImageProcess::stereo_test(Mat &imgL, Mat &imgR)
 
     return ;
 }
+void StereoImageProcess::OriginImgCoord(vector<Point2f> &pts_L,vector<Point2f> &pts_R)
+{
+    if(pts_L.size()!=pts_R.size())
+    {
+        cerr<<"Error input!"<<endl;
+        return;
+    }
+    //Get the coordinates in the original image.
+    for(int i=0;i<pts_L.size();i++)
+    {
+        pts_L[i]=pts_L[i]+this->corner_L;
+        pts_R[i]=pts_R[i]+this->corner_R;
+    }
 
+}
+
+void StereoImageProcess::FeaturesMatching(Mat &img_1, Mat &img_2, int max_points,
+                                          vector<Point2f> &matched_points_1, vector<Point2f> &matched_points_2)
+{
+    vector<KeyPoint> key_img1;
+    vector<KeyPoint> key_img2;
+    vector< DMatch > good_matches;
+    Mat descrip_1;
+    Mat descrip_2;
+    BasicImageProcess::BasicMatching(img_1, img_2, max_points,key_img1,key_img2,
+                                     descrip_1,descrip_2,good_matches,matched_points_1, matched_points_2);
+    OriginImgCoord(matched_points_1,matched_points_2);
+}
+FeaturedImg StereoImageProcess::Matching(Mat &img_L, Mat &img_R, int max_points,
+                                         vector<Point2f> &matched_points_L, vector<Point2f> &matched_points_R)
+{
+    FeaturedImg left,right;
+    left.img=img_L;
+    right.img=img_R;
+    left.top_left=this->corner_L;
+    right.top_left=this->corner_R;
+    vector< DMatch > matches;
+    BasicImageProcess::BasicMatching(left.img, right.img, max_points,left.key_pts,right.key_pts,
+                                     left.key_descrips,right.key_descrips,matches,
+                                     matched_points_L, matched_points_R);
+    //Get idx of the left image
+    for(int i=1;i<matches.size();i++)
+    {
+        int idx=matches[i].queryIdx;
+        left.matched_idx.push_back(idx);
+    }
+    OriginImgCoord(matched_points_L,matched_points_R);
+
+    return left;
+
+
+}
 
 void ObjectTracker::Track(FeaturedImg &target)
 {
-    BFMatcher matcher(NORM_HAMMING);
-    std::vector< DMatch > matches;
-    //cout<<"Debug info!!!!!!!!"<<endl;
-    matcher.match(refer.key_descrips,target.key_descrips,matches);
+
 
 
 
@@ -315,6 +373,7 @@ void PoseEst::SolvePnP(const vector<Point2f> &image_coords, const vector<Point3f
         //cout<<"solvePnP ITER time:"<<elapsed_seconds.count()<<endl;
         cout<<"R matrix:"<<R_mat<<endl;
         cout<<"t matrix:"<<t_vec<<endl;
+        cout<<"Camera matrix:"<<this->camera_matrix<<endl;
 
     }
 
@@ -325,48 +384,7 @@ void PoseEst::MarkPtOnImg(Mat &img, const Point2f &img_coord)
     circle(img,img_coord,5,Scalar(255,0,0),-1);
 }
 
-void StereoImageProcess::OriginImgCoord(vector<Point2f> &pts_L,vector<Point2f> &pts_R)
-{
-    if(pts_L.size()!=pts_R.size())
-    {
-        cerr<<"Error input!"<<endl;
-        return;
-    }
-    for(int i=0;i<pts_L.size();i++)
-    {
-        pts_L[i]=pts_L[i]+this->corner_L;
-        pts_R[i]=pts_R[i]+this->corner_R;
-    }
 
-}
-
-void StereoImageProcess::FeaturesMatching(Mat &img_1, Mat &img_2, int max_points,
-                                         vector<Point2f> &matched_points_1, vector<Point2f> &matched_points_2)
-{
-    vector<KeyPoint> key_img1;
-    vector<KeyPoint> key_img2;
-    Mat descrip_1;
-    Mat descrip_2;
-    BasicImageProcess::BasicMatching(img_1, img_2, max_points,key_img1,key_img2,
-                     descrip_1,descrip_2,matched_points_1, matched_points_2);
-    OriginImgCoord(matched_points_1,matched_points_2);
-}
-FeaturedImg StereoImageProcess::FeaturesMatching(Mat &img_L, Mat &img_R, int max_points)
-{
-    vector<KeyPoint> key_L;
-    vector<KeyPoint> key_R;
-    Mat descrip_L,descrip_R;
-    vector<Point2f> matched_points_L;
-    vector<Point2f> matched_points_R;
-    BasicImageProcess::BasicMatching(img_L,img_R,max_points,key_L,key_R,descrip_L,descrip_R,
-                                        matched_points_L,matched_points_R);
-
-
-
-    return  FeaturedImg(img_L, key_L, vector<Point3f>(),descrip_L);
-
-
-}
 
 
 

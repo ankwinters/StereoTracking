@@ -3,6 +3,7 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <iostream>
 #include <fstream>
+#include <chrono>
 
 #include "poest.h"
 //#include "pointcloud.h"
@@ -28,6 +29,7 @@ vector<Point2f> matches_L,matches_R;
 PoseEst poseEst;
 StereoImageProcess imgprocess;
 
+FeaturedImg first;
 void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 {
     if  ( event == EVENT_LBUTTONDOWN )
@@ -38,11 +40,19 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         //poseEst.stereo_test(imgL,imgR);
         if(R.rows==0)
         {
+            auto start=std::chrono::system_clock::now();
             imgprocess.ImageInput(imgL,imgL,imgR,imgR);
             imgprocess.PrintCorners();
+            /*
             imgprocess.FeaturesMatching(imgL, imgR, 5, matches_L, matches_R);
+            */
+            first=imgprocess.Matching(imgL,imgR,5,matches_L,matches_R);
             imgprocess.StereoConstruct(matches_L, matches_R, world_coord, 120.0, 2.5);
             poseEst.SolvePnP(matches_R, world_coord, R, t);
+
+            auto end=std::chrono::system_clock::now();
+            std::chrono::duration<double> elapsed_seconds = end-start;
+            cout<<"Pose estimation time:"<<elapsed_seconds.count()<<endl;
 
             /**For debugging.Input all data into a file**/
             fstream file;
@@ -70,6 +80,11 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
             cout<<"can't run?"<<endl;
         }
 
+
+    }
+    if  ( event == EVENT_RBUTTONDOWN && R.rows!=0)
+    {
+        ObjectTracker tk(first);
 
     }
 }

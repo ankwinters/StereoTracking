@@ -27,16 +27,20 @@ typedef int FEATURE_TYPE;
 class FeaturedImg
 {
 public:
-    FeaturedImg(const Mat &image,const vector<KeyPoint>& points_2d,
+    /*
+    FeaturedImg(const Mat &image,const vector<KeyPoint>& points_2d,vector<int> idx,
                 const vector<Point3f>& points_3d,const Mat& points_descrip)
-            :img(image),key_pts_2d(points_2d),key_pts_3d(points_3d),key_descrips(points_3d)
+            :img(image),key_pts(points_2d),matched_idx(idx),matched_3d(points_3d),key_descrips(points_3d)
     {
 
-    }
+    }*/
     Mat img;
-    vector<KeyPoint> key_pts_2d;
-    vector<Point3f> key_pts_3d;
+    vector<KeyPoint> key_pts;
     Mat key_descrips;
+    vector<int> matched_idx;
+    vector<Point3f> matched_3d;
+    //For coordinate computing
+    Point2f top_left;
 
 };
 
@@ -53,9 +57,13 @@ public:
     void MarkPtOnImg(Mat &img,const Point2f &img_coord);
 
 private:
+    /*
 
     Mat camera_matrix=(Mat_<float>(3,3)<< 586.7, 0., 399.5,
             0., 586.4,299.5,
+            0., 0., 1.);*/
+    Mat camera_matrix=(Mat_<float>(3,3)<< 537.6, 0., 400,
+            0., 537.6,300,
             0., 0., 1.);
     vector<double> disto;
 
@@ -70,7 +78,7 @@ public:
     bool ImageBlur(const Mat &input,Mat &output);
     void BasicMatching(Mat &img_1, Mat &img_2, int max_points,
                           vector<KeyPoint> &key_img1,vector<KeyPoint> &key_img2,
-                          Mat &descrip_1,Mat &descrip_2,
+                          Mat &descrip_1,Mat &descrip_2,vector< DMatch > &good_matches,
                           vector<Point2f> &matched_points_1, vector<Point2f> &matched_points_2);
 
 
@@ -78,10 +86,11 @@ protected:
     bool SliceImage(const Mat &input, Mat &output, Point2f &top_left);
     bool DetectExtract(const Mat &img,vector<KeyPoint> &key_points,
                        Mat &descrip,FEATURE_TYPE type=ORB_FEATURE, int minHessian=400);
-    bool FindGoodMatches(vector<DMatch> &raw_matches, const Mat &img_descrip,
-                         int num_points, vector<DMatch> &good_matches);
+    bool FindGoodMatches(vector<DMatch> &raw_matches, const vector<KeyPoint> &query_pts,
+                         const vector<KeyPoint> &train_pts,int num_points, vector<DMatch> &good_matches);
     bool GetMatchCoords(vector<DMatch> &matches,vector<KeyPoint> &key1,vector<KeyPoint> &key2,
                          vector<Point2f> &matched_pts_1,vector<Point2f> &matched_pts_2);
+
 
 
 
@@ -96,7 +105,8 @@ public:
     bool ImageInput(const Mat &img_L, Mat &out_img_L, const Mat &img_R,Mat &out_img_R);
     bool StereoConstruct(const vector<Point2f> &matched_points_L,const vector<Point2f> &matched_points_R,
                          vector<Point3f> &world_points,const double baseline,const double f);
-    FeaturedImg FeaturesMatching(Mat &img_L, Mat &img_R, int max_points);
+    FeaturedImg Matching(Mat &img_L, Mat &img_R, int max_points,vector<Point2f> &matched_points_1,
+                         vector<Point2f> &matched_points_2);
     void FeaturesMatching(Mat &img_1, Mat &img_2, int max_points,
                           vector<Point2f> &matched_points_1, vector<Point2f> &matched_points_2);
 
