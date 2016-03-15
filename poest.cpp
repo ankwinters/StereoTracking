@@ -81,6 +81,8 @@ bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2f &top_l
     int largest_contour_index=0;
     double largest_area=0;
     Rect bounding_rect;
+    Point2f tl;
+    Point2f br;
 
     for( int i = 0; i< contours.size(); i++ )
     {
@@ -93,9 +95,27 @@ bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2f &top_l
             largest_contour_index=i;
             // Find the bounding rectangle for biggest contour
             bounding_rect=boundingRect(contours[i]);
-            top_left=bounding_rect.tl();
+            //top_left=bounding_rect.tl();
+            tl=bounding_rect.tl();
+            br=bounding_rect.br();
         }
     }
+    //do some change
+
+    const int size=20;
+    float x=0;
+    float y=0;
+
+    (tl.x-size>0)?(x=tl.x-size):(x=tl.x);
+    (tl.y-size>0)?(y=tl.y-size):(y=tl.y);
+
+    top_left=Point2f(x,y);
+
+    (br.x+size<input.cols)?(x=br.x+size):(x=br.x);
+    (br.y+size<input.rows)?(y=br.y+size):(y=br.y);
+
+    bounding_rect=Rect(top_left,Point2f(x,y));
+
 
 
 /*
@@ -105,7 +125,11 @@ bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2f &top_l
     imshow( "Display window", input );
 */
     input_copy=input.clone();
+    //Implement Sharpening Filter
+    Mat kernel = (Mat_<float>(3,3) << 0,-1,0,-1,5,-1,0,-1,0);
+    filter2D(input_copy,input_copy,input.depth(),kernel);
     output=input_copy(bounding_rect);
+
    // imshow("output",output);
 
 
@@ -120,23 +144,27 @@ bool BasicImageProcess::FindGoodMatches(vector<DMatch> &raw_matches,const vector
 {
     //Define error=(y1-y2)/y1*100%
     //Then error<threshold should be determined.
+
     double threshold=0.02;
+    int dist=50;
     vector<Point2f> matches_1;
     vector<Point2f> matches_2;
+
     for( int i = 0; i < raw_matches.size(); i++ )
     {
-        matches_1.push_back(query_pts[ raw_matches[i].queryIdx ].pt );
-        matches_2.push_back(train_pts[ raw_matches[i].trainIdx ].pt );
-    }
+        matches_1.push_back(query_pts[raw_matches[i].queryIdx].pt);
+        matches_2.push_back(train_pts[raw_matches[i].trainIdx].pt);
 
+    }
     for (int i=0;i<matches_1.size();i++)
     {
         double y1=matches_1[i].y;
         double y2=matches_2[i].y;
         double diff=((y1-y2)<0)?(y2-y1):(y1-y2);
-        if( diff/y1<threshold )
+        if( diff/y1<threshold && raw_matches[i].distance<dist)
             good_matches.push_back(raw_matches[i]);
     }
+
 
     //Mask returned by findHomography is an 8-bit, single-channel cv::Mat
     //(or std::vector<uchar>, if you prefer) containing either 0 or 1 indicating the outlier status.
@@ -148,7 +176,8 @@ bool BasicImageProcess::FindGoodMatches(vector<DMatch> &raw_matches,const vector
         if(mask.at(i)!=0)
             good_matches.push_back(raw_matches[i]);
     }
-     */
+    */
+
 
     return true;
 }
@@ -328,7 +357,51 @@ FeaturedImg StereoImageProcess::Matching(Mat &img_L, Mat &img_R, int max_points,
 void ObjectTracker::Track(FeaturedImg &target)
 {
 
+    /*
+     * Matching key points from two frames.
+     * Key points from the referer should be refined
+     * because of the previous binocular matching.
+     */
 
+
+    vector<KeyPoint> refer_keys;
+    vector<KeyPoint> target_keys;
+    for(int i=0;i<this->refer.matched_idx.size();i++)
+    {
+        int idx=this->refer.matched_idx[i];
+        refer_keys.push_back(this->refer.key_pts[idx]);
+    }
+
+    for(int j=0;j<target.matched_idx.size();j++)
+    {
+        int idx=target.matched_idx[j];
+        target_keys.push_back(target.key_pts[idx]);
+    }
+
+
+
+    OrbDescriptorExtractor orb_extractor;
+    orb_extractor.compute(this->refer.img, refer_keys, this->refer.key_descrips);
+    orb_extractor.compute(target.img, target_keys, target.key_descrips);
+
+    BFMatcher matcher(NORM_HAMMING);
+    vector< DMatch > matches;
+
+
+
+    matcher.match(refer.key_descrips,target.key_descrips,matches);
+
+    /*
+     * Step4:Find good match
+     */
+    vector< DMatch > good_matches;
+    RefineMatches(matches,good_matches);
+    Mat img_matches;
+    //drawMatches(img_2,key_imgR,img_1,key_imgL,good_matches,img_matches);
+    drawMatches( refer.img, refer_keys, target.img, target_keys,
+                 good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+                 vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+    imshow( "Two frame Matches", img_matches );
 
 
 
@@ -358,7 +431,8 @@ Point3f PoseEst::CalcWldCoord(const Mat &R, const Mat &t, const Point2f &img_coo
 void PoseEst::SolvePnP(const vector<Point2f> &image_coords, const vector<Point3f> &world_coords,
                        Mat &R_mat, Mat &t_vec)
 {
-    if(image_coords.size()==world_coords.size() && R_mat.rows==0)
+    if(image_coords.size()==world_coords.size() )
+       //&& R_mat.rows==0)
     {
         /* When there are enough points collected,
          * calculate the matrix R|t with PnP algorithm
@@ -385,8 +459,22 @@ void PoseEst::MarkPtOnImg(Mat &img, const Point2f &img_coord)
 }
 
 
+bool ObjectTracker::RefineMatches(const vector<DMatch> &raw_matches, vector<DMatch> &good_matches,
+                                  FEATURE_TYPE type=ORB_FEATURE)
+{
+    int dist=55;
+    for (int i=0;i<raw_matches.size();i++)
+    {
+        if( raw_matches[i].distance<dist)
+            good_matches.push_back(raw_matches[i]);
+    }
 
 
+    return true;
+}
 
+void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat &Rot, Mat &Tran)
+{
+    
 
-
+}

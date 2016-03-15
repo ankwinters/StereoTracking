@@ -19,6 +19,7 @@ typedef int FEATURE_TYPE;
 #define SIFT_FEATURE 0
 #define ORB_FEATURE 1
 
+
 //Mat camera_mat=(Mat_<double>(3,3)<< 586.7, 0., 399.5,
 //        0., 586.4,299.5,
 //        0., 0., 1.);
@@ -39,6 +40,24 @@ public:
     Mat key_descrips;
     vector<int> matched_idx;
     vector<Point3f> matched_3d;
+    //For coordinate computing
+    Point2f top_left;
+
+};
+
+class PnpImg
+//Img class with R t info
+{
+public:
+    /*
+    FeaturedImg(const Mat &image,const vector<KeyPoint>& points_2d,vector<int> idx,
+                const vector<Point3f>& points_3d,const Mat& points_descrip)
+            :img(image),key_pts(points_2d),matched_idx(idx),matched_3d(points_3d),key_descrips(points_3d)
+    {
+
+    }*/
+    Mat img;
+    Mat R_t;
     //For coordinate computing
     Point2f top_left;
 
@@ -90,6 +109,7 @@ protected:
                          const vector<KeyPoint> &train_pts,int num_points, vector<DMatch> &good_matches);
     bool GetMatchCoords(vector<DMatch> &matches,vector<KeyPoint> &key1,vector<KeyPoint> &key2,
                          vector<Point2f> &matched_pts_1,vector<Point2f> &matched_pts_2);
+    bool RefineKp(FeaturedImg &fimg);
 
 
 
@@ -138,10 +158,13 @@ class ObjectTracker:public BasicImageProcess
 public:
     ObjectTracker(const FeaturedImg &fiducial):refer(fiducial){ }
     void Track(FeaturedImg &target);
+    void CalcMotions(vector<Point3f> &ref,vector<Point3f> &tgt,Mat &Rot,Mat &Tran);
 
 
 private:
     FeaturedImg refer;
+    bool RefineMatches(const vector<DMatch> &raw_matches, vector<DMatch> &good_matches);
+    bool RefineMotions();
 
 
 };
