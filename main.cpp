@@ -145,17 +145,32 @@ inline void ReadImage(const char *URL1,const char *URL2,Mat &img1,Mat &img2)
 
 }
 
+void Test()
+{
+    ObjectTracker a;
+    Mat r,t;
+    vector<Point3f> ref;
+    ref.push_back(Point3f(12.5,13.,0));
+    ref.push_back(Point3f(7.,6.,0));
+    ref.push_back(Point3f(3.,2.2,0));
+    vector<Point3f> tgt;
+    tgt.push_back(Point3f(0,1.,1.));
+    tgt.push_back(Point3f(0,9.,6.6));
+    tgt.push_back(Point3f(0,7.2,12.7));
+    a.CalcMotions(ref,tgt,r,t);
+}
 int main( int argc, char** argv)
 {
 
 
     if( argc < 2)
     {
+        Test();
         cout <<" Usage: poest ImageToLoadL ImageToLoadR" << endl;
         return -1;
     }
     ReadImage(argv[1],argv[2],imgL,imgR);
-    ReadImage(argv[3],argv[4],imgL_2,imgR_2);
+    //ReadImage(argv[3],argv[4],imgL_2,imgR_2);
 
     image = imread(argv[1], CV_LOAD_IMAGE_COLOR);   // Read the file
 

@@ -94,7 +94,7 @@ private:
 class BasicImageProcess
 {
 public:
-    bool ImageBlur(const Mat &input,Mat &output);
+    bool Histogram(const Mat &input,Mat &output);
     void BasicMatching(Mat &img_1, Mat &img_2, int max_points,
                           vector<KeyPoint> &key_img1,vector<KeyPoint> &key_img2,
                           Mat &descrip_1,Mat &descrip_2,vector< DMatch > &good_matches,
@@ -153,21 +153,51 @@ private:
 };
 
 //Track interest points from two images
+
 class ObjectTracker:public BasicImageProcess
 {
 public:
     ObjectTracker(const FeaturedImg &fiducial):refer(fiducial){ }
+    ObjectTracker()= default;
     void Track(FeaturedImg &target);
     void CalcMotions(vector<Point3f> &ref,vector<Point3f> &tgt,Mat &Rot,Mat &Tran);
 
 
 private:
     FeaturedImg refer;
-    bool RefineMatches(const vector<DMatch> &raw_matches, vector<DMatch> &good_matches);
+    bool RefineMatches(const vector<DMatch> &raw_matches, vector<DMatch> &good_matches,FEATURE_TYPE type=ORB_FEATURE);
     bool RefineMotions();
+
+private:
+    inline Mat GetNormal(const Point3f &p1, const Point3f &p2, const Point3f &p3);
+    inline double CalcNorm(const Mat &input);
+
 
 
 };
+/*
+ * inline functions
+ */
+
+Mat ObjectTracker::GetNormal(const Point3f &p1, const Point3f &p2, const Point3f &p3)
+{
+    double a,b,c;
+    a = ( (p2.y-p1.y)*(p3.z-p1.z)-(p2.z-p1.z)*(p3.y-p1.y) );
+    b = ( (p2.z-p1.z)*(p3.x-p1.x)-(p2.x-p1.x)*(p3.z-p1.z) );
+    c = ( (p2.x-p1.x)*(p3.y-p1.y)-(p2.y-p1.y)*(p3.x-p1.x) );
+
+    double length=sqrt(a*a+b*b+c*c);
+    return (Mat_<double>(3,1)<< a/length,b/length,c/length);
+}
+
+
+double ObjectTracker::CalcNorm(const Mat &input)
+{
+    double a=input.at<double>(0,0);
+    double b=input.at<double>(1,0);
+    double c=input.at<double>(2,0);
+    return sqrt(a*a+b*b+c*c);
+}
 
 
 

@@ -16,12 +16,24 @@ using namespace std;
 bool BasicImageProcess::DetectExtract( const Mat &img,vector<KeyPoint> &key_points, Mat &descrip,
                                        FEATURE_TYPE type, int minHessian)
 {
-    OrbFeatureDetector orb_detector(minHessian);
-    //Step1:feature detection
-    orb_detector.detect(img,key_points);
-    //Step2:compute
-    OrbDescriptorExtractor orb_extractor;
-    orb_extractor.compute(img,key_points,descrip);
+    if(type==ORB_FEATURE)
+    {
+        OrbFeatureDetector orb_detector(minHessian);
+        //Step1:feature detection
+        orb_detector.detect(img, key_points);
+        //Step2:compute
+        OrbDescriptorExtractor orb_extractor;
+        orb_extractor.compute(img, key_points, descrip);
+    }
+    else if(type==SIFT_FEATURE)
+    {
+
+        SiftFeatureDetector sift_detect( minHessian );
+
+        sift_detect.detect( img, key_points );
+        SiftDescriptorExtractor sift_extractor;
+        sift_extractor.compute(img,key_points,descrip);
+    }
     return true;
 }
 void BasicImageProcess::BasicMatching(Mat &img_1, Mat &img_2, int max_points,
@@ -29,28 +41,43 @@ void BasicImageProcess::BasicMatching(Mat &img_1, Mat &img_2, int max_points,
                                          Mat &descrip_1,Mat &descrip_2, vector< DMatch > &good_matches,
                                          vector<Point2f> &matched_points_1, vector<Point2f> &matched_points_2)
 {
+
     DetectExtract(img_1, key_img1, descrip_1);
     DetectExtract(img_2, key_img2, descrip_2);
     //Step3:matching
 
     //cout<<"Debug info!!!!!!!!"<<endl;
-    //FlannBasedMatcher matcher;
+
+//    Ptr<flann::IndexParams> indexParams=new flann::LshIndexParams();
+  //  FlannBasedMatcher matcher(indexParams);
 
     BFMatcher matcher(NORM_HAMMING);
     std::vector< DMatch > matches;
 
     matcher.match(descrip_1,descrip_2,matches);
 
-    /* TB improved
-     * Step4:Find good match
-     */
+    // TB improved
+    //  Step4:Find good match
     FindGoodMatches(matches,key_img1,key_img2,max_points,good_matches);
+    /*
+    DetectExtract(img_1, key_img1, descrip_1,SIFT_FEATURE);
+    DetectExtract(img_2, key_img2, descrip_2,SIFT_FEATURE);
+    FlannBasedMatcher matcher;
+    //std::vector< DMatch > good_matches;
+    matcher.match(descrip_1,descrip_2,good_matches);
+    */
+
+
+
     Mat img_matches;
     //drawMatches(img_2,key_imgR,img_1,key_imgL,good_matches,img_matches);
     drawMatches( img_1, key_img1, img_2, key_img2,
                  good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
                  vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
     imshow( "Good Matches", img_matches );
+    imwrite("../matches.jpg",img_matches );
+    exit(0);
+
 
     //Step5:Output the coordinates of matched points.
     GetMatchCoords(good_matches,key_img1,key_img2,matched_points_1,matched_points_2);
@@ -68,10 +95,15 @@ bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2f &top_l
     cvtColor(input_copy, gray, CV_BGR2GRAY);
     //Temporarily set threshold to 40
     //To be modified by some advanced method
+    //equalizeHist( gray, gray );
+    //imshow("gray",gray);
+    //imwrite( "../Gray_His.jpg", gray );
+
     threshold(gray, gray,44, 255,THRESH_BINARY_INV); //Threshold the gray
     //Make black to white and vice versa
     bitwise_not(gray,gray);
     //imshow("gray",gray);
+    //imwrite( "../Gray_Image.jpg", gray );
 
     vector<vector<cv::Point> > contours;
 
@@ -124,6 +156,7 @@ bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2f &top_l
     namedWindow( "Display window", CV_WINDOW_AUTOSIZE );
     imshow( "Display window", input );
 */
+    //drawContours( input, contours,largest_contour_index, Scalar( 255,255,255));
     input_copy=input.clone();
     //Implement Sharpening Filter
     Mat kernel = (Mat_<float>(3,3) << 0,-1,0,-1,5,-1,0,-1,0);
@@ -131,6 +164,9 @@ bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2f &top_l
     output=input_copy(bounding_rect);
 
    // imshow("output",output);
+    //rectangle(input_copy, bounding_rect,  Scalar(0,255,0),2, 8,0);
+    //imwrite("../out.jpg",input_copy);
+    //imwrite( "../output.jpg", output );
 
 
 
@@ -460,7 +496,7 @@ void PoseEst::MarkPtOnImg(Mat &img, const Point2f &img_coord)
 
 
 bool ObjectTracker::RefineMatches(const vector<DMatch> &raw_matches, vector<DMatch> &good_matches,
-                                  FEATURE_TYPE type=ORB_FEATURE)
+                                  FEATURE_TYPE type)
 {
     int dist=55;
     for (int i=0;i<raw_matches.size();i++)
@@ -475,6 +511,56 @@ bool ObjectTracker::RefineMatches(const vector<DMatch> &raw_matches, vector<DMat
 
 void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat &Rot, Mat &Tran)
 {
-    
+
+    /*
+     * Calc with the method brought by Horn(1987)
+     */
+    //Step1 : calc the centroid
+    //calc the centroid of the points from previous frame
+    assert(ref.size()==3 && tgt.size()==3);
+    Point3f P_op={0,0,0};
+    for(int i=0;i<ref.size();i++)
+    {
+        P_op+=ref[i];
+    }
+    P_op.x=P_op.x/ref.size();
+    P_op.y=P_op.y/ref.size();
+    P_op.z=P_op.z/ref.size();
+    //calc the centroid from working frame
+    Point3f P_oc={0,0,0};
+    for(int i=0;i<tgt.size();i++)
+    {
+        P_oc+=tgt[i];
+    }
+    P_oc.x=P_oc.x/ref.size();
+    P_oc.y=P_oc.y/ref.size();
+    P_oc.z=P_oc.z/ref.size();
+
+    //Step2 : calc the Normals
+    Mat Np=GetNormal(ref[0],ref[1],ref[2]);
+    Mat Nc=GetNormal(tgt[0],tgt[1],tgt[2]);
+    //debug
+    //cout<<"N_op:"<<Np<<endl;
+    //cout<<"N_oc:"<<Nc<<endl;
+
+    //Step3:calc the skew angle ,fi, of the two planes
+    Mat Na=Np.cross(Nc);
+    double sin_fi=CalcNorm(Na);
+    double cos_fi=Np.dot(Nc);
+
+    //cout<<"N_op:"<<sin_fi<<endl;
+    //cout<<"N_oc:"<<cos_fi<<endl;
+
+
+
+
+
 
 }
+
+bool BasicImageProcess::Histogram(const Mat &input, Mat &output)
+{
+    return true;
+}
+
+
