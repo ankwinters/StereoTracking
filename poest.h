@@ -44,6 +44,28 @@ public:
     Point2f top_left;
 
 };
+//Math class
+
+class Quaternion
+{
+public:
+    Quaternion(double R,double G,double B,double A):
+    r(R),g(G),b(B),a(A),s(0){ }
+    Quaternion(double R,double G,double B,double A,double S):
+            r(R),g(G),b(B),a(A),s(S){ }
+
+    inline void ToRMatrix(Mat &R);
+    inline void ToRMat(Mat &R);
+
+private:
+    //real part
+    double r;
+    //imaginary part
+    double g;
+    double b;
+    double a;
+    double s;
+};
 
 class PnpImg
 //Img class with R t info
@@ -169,8 +191,9 @@ private:
     bool RefineMotions();
 
 private:
-    inline Mat GetNormal(const Point3f &p1, const Point3f &p2, const Point3f &p3);
+    inline double GetNormal(const Point3f &p1, const Point3f &p2, const Point3f &p3,Mat &output);
     inline double CalcNorm(const Mat &input);
+    inline Point3f CalcCentroid(vector<Point3f> &pts);
 
 
 
@@ -178,16 +201,67 @@ private:
 /*
  * inline functions
  */
+void Quaternion::ToRMatrix(Mat &R)
+{
 
-Mat ObjectTracker::GetNormal(const Point3f &p1, const Point3f &p2, const Point3f &p3)
+    //Mat R=Mat::zeros(3,3,CV_32F);
+    R.at<double>(0,0)=r*r+g*g-b*b-a*a;
+    R.at<double>(1,0)=2*(g*b-r*a);
+    R.at<double>(2,0)=2*(g*a+r*b);
+
+    R.at<double>(0,1)=2*(g*b+r*a);
+    R.at<double>(1,1)=r*r-g*g+b*b-a*a;
+    R.at<double>(2,1)=2*(b*a-r*g);
+
+    R.at<double>(0,2)=2*(g*a-r*b);
+    R.at<double>(1,2)=2*(b*a+r*g);
+    R.at<double>(2,2)=r*r-g*g-b*b+a*a;
+    return;
+}
+
+void Quaternion::ToRMat(Mat &R)
+{
+    R.at<double>(0,0)=1-2*b*b-2*a*a;
+    R.at<double>(1,0)=2*(g*b+a*r);
+    R.at<double>(2,0)=2*(g*a-b*r);
+
+    R.at<double>(0,1)=2*(g*b-a*r);
+    R.at<double>(1,1)=1-2*g*g-2*a*a;
+    R.at<double>(2,1)=2*(b*a+g*r);
+
+    R.at<double>(0,2)=2*(g*a+b*r);
+    R.at<double>(1,2)=2*(b*a-g*r);
+    R.at<double>(2,2)=1-2*g*g-2*b*b;
+    return;
+
+}
+
+
+
+
+double ObjectTracker::GetNormal(const Point3f &p1, const Point3f &p2, const Point3f &p3,Mat &output)
 {
     double a,b,c;
     a = ( (p2.y-p1.y)*(p3.z-p1.z)-(p2.z-p1.z)*(p3.y-p1.y) );
     b = ( (p2.z-p1.z)*(p3.x-p1.x)-(p2.x-p1.x)*(p3.z-p1.z) );
     c = ( (p2.x-p1.x)*(p3.y-p1.y)-(p2.y-p1.y)*(p3.x-p1.x) );
-
     double length=sqrt(a*a+b*b+c*c);
-    return (Mat_<double>(3,1)<< a/length,b/length,c/length);
+    if(true)
+    {
+        output.at<double>(0,0)=a/length;
+        output.at<double>(1,0)=b/length;
+        output.at<double>(2,0)=c/length;
+    }
+    else
+    {
+        output.at<double>(0,0)=-a/length;
+        output.at<double>(1,0)=-b/length;
+        output.at<double>(2,0)=-c/length;
+    }
+
+
+    return length;
+
 }
 
 
@@ -199,6 +273,17 @@ double ObjectTracker::CalcNorm(const Mat &input)
     return sqrt(a*a+b*b+c*c);
 }
 
-
+Point3f ObjectTracker::CalcCentroid(vector<Point3f> &pts)
+{
+    Point3f p;
+    for(int i=0;i<pts.size();i++)
+    {
+        p+=pts[i];
+    }
+    p.x=p.x/pts.size();
+    p.y=p.y/pts.size();
+    p.z=p.z/pts.size();
+    return p;
+}
 
 #endif //POEST_PNP_H

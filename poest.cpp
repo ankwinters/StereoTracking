@@ -509,58 +509,119 @@ bool ObjectTracker::RefineMatches(const vector<DMatch> &raw_matches, vector<DMat
     return true;
 }
 
+
+
 void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat &Rot, Mat &Tran)
 {
-
-    /*
-     * Calc with the method brought by Horn(1987)
-     */
+    //* Calc with the method brought by Horn(1987)
+    int num=3;//Number of points
+    assert(ref.size()==num && tgt.size()==num);
     //Step1 : calc the centroid
-    //calc the centroid of the points from previous frame
-    assert(ref.size()==3 && tgt.size()==3);
-    Point3f P_op={0,0,0};
-    for(int i=0;i<ref.size();i++)
+    //calc the centroid of the points from previous frame & current one
+    //Change points to the centroid-based coords
+    Point3f Pp=CalcCentroid(ref);
+    Point3f Pc=CalcCentroid(tgt);
+    vector<Mat_<double> > priv;
+    vector<Mat_<double> > curr;
+    for(int i=0;i<num;i++)
     {
-        P_op+=ref[i];
+        priv.push_back(Mat_<double>(ref[i]-Pp));
+        cout<<"priv["<<i<<"]:"<<priv[i]<<endl;
     }
-    P_op.x=P_op.x/ref.size();
-    P_op.y=P_op.y/ref.size();
-    P_op.z=P_op.z/ref.size();
-    //calc the centroid from working frame
-    Point3f P_oc={0,0,0};
-    for(int i=0;i<tgt.size();i++)
+    for(int i=0;i<num;i++)
     {
-        P_oc+=tgt[i];
+        curr.push_back(Mat_<double>(tgt[i]-Pc));
+        cout<<"curr["<<i<<"]:"<<curr[i]<<endl;
     }
-    P_oc.x=P_oc.x/ref.size();
-    P_oc.y=P_oc.y/ref.size();
-    P_oc.z=P_oc.z/ref.size();
+    /*
 
-    //Step2 : calc the Normals
-    Mat Np=GetNormal(ref[0],ref[1],ref[2]);
-    Mat Nc=GetNormal(tgt[0],tgt[1],tgt[2]);
-    //debug
-    //cout<<"N_op:"<<Np<<endl;
-    //cout<<"N_oc:"<<Nc<<endl;
+    //Debug info
+    cout<<"Pp:"<<Pp<<endl;
+    cout<<"Pc:"<<Pc<<endl;
 
-    //Step3:calc the skew angle ,fi, of the two planes
-    Mat Na=Np.cross(Nc);
-    double sin_fi=CalcNorm(Na);
-    double cos_fi=Np.dot(Nc);
+    //Step2:Calc norm
+    Mat Np=Mat::zeros(3,1,CV_64F);
+    double len_Np=GetNormal(priv[0],priv[1],priv[2],Np);
+    Mat Nc=Mat::zeros(3,1,CV_64F);
+    double len_Nc=GetNormal(curr[0],curr[1],curr[2],Nc);
+    Mat Na=Nc.cross(Np);
 
-    //cout<<"N_op:"<<sin_fi<<endl;
-    //cout<<"N_oc:"<<cos_fi<<endl;
+    //Step3: Calc qa & qp
+    //Key:Find cos_half_fi,sin_half_fi & cos_half_th,sin_half_th
+    //0<fi<Pi,
+    //For qa
+    double cos_fi=Nc.dot(Np);
+    double cos_half_fi=sqrt((1+cos_fi)/2);
+    double sin_half_fi=sqrt((1-cos_fi)/2);
+    //Debug info
+    cout<<"cos_fi:"<<cos_fi<<endl;
+    cout<<"cos_half_fi:"<<cos_half_fi<<endl;
+    cout<<"sin_half_fi:"<<sin_half_fi<<endl;
+    Quaternion qa(cos_half_fi,
+                 Na.at<double>(0,0)*sin_half_fi, Na.at<double>(1,0)*sin_half_fi, Na.at<double>(2,0)*sin_half_fi);
+    //For qp, C&S need to be calculated first
+    //Warning!!! Tgt Points need a rotation
 
 
+
+
+    double C=0;
+    for(int i=0;i<num;i++)
+    {
+        C+=curr[i].dot(priv[i]);
+    }
+    double S=0;
+    for(int i=0;i<num;i++)
+    {
+        Mat temp=curr[i].cross(priv[i]);
+        Mat temp_N=Mat_<double>(temp);
+        //cout<<"Temp["<<i<<"]:"<<temp_N<<endl;
+        S=S+Np.dot(temp_N);
+    }
+
+    double cos_th=C/sqrt(C*C+S*S);
+    double cos_half_th=sqrt((1+cos_th)/2);
+    double sin_half_th=sqrt((1-cos_th)/2);
+
+    //Debug info
+    cout<<"cos_th:"<<cos_th<<endl;
+    cout<<"cos_half_th:"<<cos_half_th<<endl;
+    cout<<"sin_half_th:"<<sin_half_th<<endl;
+
+    Quaternion qp(cos_half_th,
+                 Np.at<double>(0,0)*sin_half_th, Np.at<double>(1,0)*sin_half_th, Np.at<double>(2,0)*sin_half_th);
+    //Step4:Calc quaternion-derived rotation matrix Ra &Rq
+
+    Mat Ra=Mat::zeros(3,3,CV_64F);
+    qa.ToRMat(Ra);
+    Mat Rp=Mat::zeros(3,3,CV_64F);
+    qp.ToRMat(Rp);
+    Rot=Rp*Ra;
+
+    //Debug info
+    cout<<"Ra:"<<Ra<<endl;
+    cout<<"Rp:"<<Rp<<endl;
+    cout<<"R:"<<Rot<<endl;
+
+    //Step6:Calc matrix T
+    Mat _Poc,_Pop;
+    _Poc=Mat_<double>(Pc);
+    _Pop=Mat_<double>(Pp);
+    //transpose(Mat(P_oc),_Poc);
+    //transpose(Mat(P_op),_Pop);
+    Tran=_Pop-Rot*_Poc;
+
+    cout<<"Tran:"<<Tran<<endl;
+     */
 
 
 
 
 }
-
 bool BasicImageProcess::Histogram(const Mat &input, Mat &output)
 {
     return true;
 }
+
 
 

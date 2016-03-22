@@ -150,17 +150,26 @@ void Test()
     ObjectTracker a;
     Mat r,t;
     vector<Point3f> ref;
-    ref.push_back(Point3f(12.5,13.,0));
+    ref.push_back(Point3f(12.,13.,0));
     ref.push_back(Point3f(7.,6.,0));
     ref.push_back(Point3f(3.,2.2,0));
+
     vector<Point3f> tgt;
-    tgt.push_back(Point3f(0,1.,1.));
-    tgt.push_back(Point3f(0,9.,6.6));
-    tgt.push_back(Point3f(0,7.2,12.7));
+    tgt.push_back(Point3f(0,13.,12.));
+    tgt.push_back(Point3f(0,6.,7.));
+    tgt.push_back(Point3f(0,2.2,3.));
     a.CalcMotions(ref,tgt,r,t);
+    /*
+    Mat camera_matrix=(Mat_<float>(3,2)<< 537.6, 0., 400,
+            0., 537.6,300);
+    cout<<camera_matrix.size()<<endl;
+     */
+
+
 }
 int main( int argc, char** argv)
 {
+
 
 
     if( argc < 2)
