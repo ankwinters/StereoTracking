@@ -158,7 +158,7 @@ void Test()
     tgt.push_back(Point3f(0,13.,12.));
     tgt.push_back(Point3f(0,6.,7.));
     tgt.push_back(Point3f(0,2.2,3.));
-    a.CalcMotions(ref,tgt,r,t);
+    a.CalcMotions(tgt,ref,r,t);
     /*
     Mat camera_matrix=(Mat_<float>(3,2)<< 537.6, 0., 400,
             0., 537.6,300);

@@ -191,7 +191,7 @@ private:
     bool RefineMotions();
 
 private:
-    inline double GetNormal(const Point3f &p1, const Point3f &p2, const Point3f &p3,Mat &output);
+    inline double GetNormal(const Mat &p1, const Mat &p2, const Mat &p3,Mat &output);
     inline double CalcNorm(const Mat &input);
     inline Point3f CalcCentroid(vector<Point3f> &pts);
 
@@ -239,12 +239,20 @@ void Quaternion::ToRMat(Mat &R)
 
 
 
-double ObjectTracker::GetNormal(const Point3f &p1, const Point3f &p2, const Point3f &p3,Mat &output)
+double ObjectTracker::GetNormal(const Mat &p1, const Mat &p2, const Mat &p3,Mat &output)
 {
     double a,b,c;
-    a = ( (p2.y-p1.y)*(p3.z-p1.z)-(p2.z-p1.z)*(p3.y-p1.y) );
-    b = ( (p2.z-p1.z)*(p3.x-p1.x)-(p2.x-p1.x)*(p3.z-p1.z) );
-    c = ( (p2.x-p1.x)*(p3.y-p1.y)-(p2.y-p1.y)*(p3.x-p1.x) );
+    a = ( (p2.at<double>(1,0)-p1.at<double>(1,0))*(p3.at<double>(2,0)-p1.at<double>(2,0))-
+            (p2.at<double>(2,0)-p1.at<double>(2,0))*(p3.at<double>(1,0)-p1.at<double>(1,0)) );
+    b = ( (p2.at<double>(2,0)-p1.at<double>(2,0))*(p3.at<double>(0,0)-p1.at<double>(0,0))-
+            (p2.at<double>(0,0)-p1.at<double>(0,0))*(p3.at<double>(2,0)-p1.at<double>(2,0)) );
+    c = ( (p2.at<double>(0,0)-p1.at<double>(0,0))*(p3.at<double>(1,0)-p1.at<double>(1,0))-
+            (p2.at<double>(1,0)-p1.at<double>(1,0))*(p3.at<double>(0,0)-p1.at<double>(0,0)) );
+
+    //a = ( (p2.y-p1.y)*(p3.z-p1.z)-(p2.z-p1.z)*(p3.y-p1.y) );
+    //b = ( (p2.z-p1.z)*(p3.x-p1.x)-(p2.x-p1.x)*(p3.z-p1.z) );
+    //c = ( (p2.x-p1.x)*(p3.y-p1.y)-(p2.y-p1.y)*(p3.x-p1.x) );
+
     double length=sqrt(a*a+b*b+c*c);
     if(true)
     {
@@ -252,12 +260,7 @@ double ObjectTracker::GetNormal(const Point3f &p1, const Point3f &p2, const Poin
         output.at<double>(1,0)=b/length;
         output.at<double>(2,0)=c/length;
     }
-    else
-    {
-        output.at<double>(0,0)=-a/length;
-        output.at<double>(1,0)=-b/length;
-        output.at<double>(2,0)=-c/length;
-    }
+
 
 
     return length;

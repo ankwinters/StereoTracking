@@ -533,7 +533,7 @@ void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat 
         curr.push_back(Mat_<double>(tgt[i]-Pc));
         cout<<"curr["<<i<<"]:"<<curr[i]<<endl;
     }
-    /*
+
 
     //Debug info
     cout<<"Pp:"<<Pp<<endl;
@@ -545,6 +545,11 @@ void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat 
     Mat Nc=Mat::zeros(3,1,CV_64F);
     double len_Nc=GetNormal(curr[0],curr[1],curr[2],Nc);
     Mat Na=Nc.cross(Np);
+
+    //Debug info
+    cout<<"Np:"<<Np<<endl;
+    cout<<"Nc:"<<Nc<<endl;
+    cout<<"Na:"<<Na<<endl;
 
     //Step3: Calc qa & qp
     //Key:Find cos_half_fi,sin_half_fi & cos_half_th,sin_half_th
@@ -559,12 +564,16 @@ void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat 
     cout<<"sin_half_fi:"<<sin_half_fi<<endl;
     Quaternion qa(cos_half_fi,
                  Na.at<double>(0,0)*sin_half_fi, Na.at<double>(1,0)*sin_half_fi, Na.at<double>(2,0)*sin_half_fi);
+    Mat Ra=Mat::zeros(3,3,CV_64F);
+    qa.ToRMat(Ra);
     //For qp, C&S need to be calculated first
     //Warning!!! Tgt Points need a rotation
-
-
-
-
+    //********************************************
+    for(int i=0;i<num;i++)
+    {
+        curr[i]=Ra*curr[i];
+    }
+    //********************************************
     double C=0;
     for(int i=0;i<num;i++)
     {
@@ -574,9 +583,9 @@ void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat 
     for(int i=0;i<num;i++)
     {
         Mat temp=curr[i].cross(priv[i]);
-        Mat temp_N=Mat_<double>(temp);
+        //Mat temp_N=Mat_<double>(temp);
         //cout<<"Temp["<<i<<"]:"<<temp_N<<endl;
-        S=S+Np.dot(temp_N);
+        S=S+Np.dot(temp);
     }
 
     double cos_th=C/sqrt(C*C+S*S);
@@ -592,8 +601,6 @@ void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat 
                  Np.at<double>(0,0)*sin_half_th, Np.at<double>(1,0)*sin_half_th, Np.at<double>(2,0)*sin_half_th);
     //Step4:Calc quaternion-derived rotation matrix Ra &Rq
 
-    Mat Ra=Mat::zeros(3,3,CV_64F);
-    qa.ToRMat(Ra);
     Mat Rp=Mat::zeros(3,3,CV_64F);
     qp.ToRMat(Rp);
     Rot=Rp*Ra;
@@ -612,9 +619,7 @@ void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat 
     Tran=_Pop-Rot*_Poc;
 
     cout<<"Tran:"<<Tran<<endl;
-     */
-
-
+    return ;
 
 
 }
