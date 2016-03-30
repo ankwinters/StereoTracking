@@ -37,9 +37,9 @@ bool BasicImageProcess::DetectExtract( const Mat &img,vector<KeyPoint> &key_poin
     return true;
 }
 void BasicImageProcess::BasicMatching(Mat &img_1, Mat &img_2, int max_points,
-                                         vector<KeyPoint> &key_img1,vector<KeyPoint> &key_img2,
-                                         Mat &descrip_1,Mat &descrip_2, vector< DMatch > &good_matches,
-                                         vector<Point2f> &matched_points_1, vector<Point2f> &matched_points_2)
+                                      vector<KeyPoint> &key_img1,vector<KeyPoint> &key_img2,
+                                      Mat &descrip_1,Mat &descrip_2, vector< DMatch > &good_matches,
+                                      vector<Point2f> &matched_points_1, vector<Point2f> &matched_points_2)
 {
 
     DetectExtract(img_1, key_img1, descrip_1);
@@ -49,7 +49,7 @@ void BasicImageProcess::BasicMatching(Mat &img_1, Mat &img_2, int max_points,
     //cout<<"Debug info!!!!!!!!"<<endl;
 
 //    Ptr<flann::IndexParams> indexParams=new flann::LshIndexParams();
-  //  FlannBasedMatcher matcher(indexParams);
+    //  FlannBasedMatcher matcher(indexParams);
 
     BFMatcher matcher(NORM_HAMMING);
     std::vector< DMatch > matches;
@@ -76,12 +76,52 @@ void BasicImageProcess::BasicMatching(Mat &img_1, Mat &img_2, int max_points,
                  vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
     imshow( "Good Matches", img_matches );
     imwrite("../matches.jpg",img_matches );
-    exit(0);
 
 
     //Step5:Output the coordinates of matched points.
     GetMatchCoords(good_matches,key_img1,key_img2,matched_points_1,matched_points_2);
     return;
+
+}
+
+void BasicImageProcess::BasicMatching(FEATURE_TYPE type,Mat &img_1, Mat &img_2,
+                                      vector<KeyPoint> &key_img1, vector<KeyPoint> &key_img2, Mat &descrip_1, Mat &descrip_2,
+                                      vector<DMatch> &good_matches, Mat &matched_img)
+{
+    DetectExtract(img_1, key_img1, descrip_1);
+    DetectExtract(img_2, key_img2, descrip_2);
+    //Step3:matching
+
+    //cout<<"Debug info!!!!!!!!"<<endl;
+
+//    Ptr<flann::IndexParams> indexParams=new flann::LshIndexParams();
+    //  FlannBasedMatcher matcher(indexParams);
+
+    BFMatcher matcher(NORM_HAMMING);
+    std::vector< DMatch > matches;
+
+    matcher.match(descrip_1,descrip_2,matches);
+
+    // TB improved
+    //  Step4:Find good match
+    int max_points=100;
+    FindGoodMatches(matches,key_img1,key_img2,max_points,good_matches);
+    /*
+    DetectExtract(img_1, key_img1, descrip_1,SIFT_FEATURE);
+    DetectExtract(img_2, key_img2, descrip_2,SIFT_FEATURE);
+    FlannBasedMatcher matcher;
+    //std::vector< DMatch > good_matches;
+    matcher.match(descrip_1,descrip_2,good_matches);
+    */
+
+
+
+    //drawMatches(img_2,key_imgR,img_1,key_imgL,good_matches,img_matches);
+    drawMatches( img_1, key_img1, img_2, key_img2,
+                 good_matches, matched_img, Scalar::all(-1), Scalar::all(-1),
+                 vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+    //imshow( "Good Matches", matched_img);
+    //imwrite("../matches.jpg",matched_img );
 
 }
 
@@ -163,13 +203,10 @@ bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2f &top_l
     filter2D(input_copy,input_copy,input.depth(),kernel);
     output=input_copy(bounding_rect);
 
-   // imshow("output",output);
+    // imshow("output",output);
     //rectangle(input_copy, bounding_rect,  Scalar(0,255,0),2, 8,0);
     //imwrite("../out.jpg",input_copy);
     //imwrite( "../output.jpg", output );
-
-
-
 
 }
 
@@ -262,33 +299,8 @@ bool StereoImageProcess::DetectObject(Mat &src_img, Mat &obj_img)
     return false;
 }
 
-void StereoImageProcess::Featuremethod(Mat &image)
-{
-    //1 initialize
-    int minHessian = 400;
-    SiftFeatureDetector sift_detect( minHessian );
-
-    //2detect
-    vector<KeyPoint> keypoints;
-    sift_detect.detect( image, keypoints );
-
-    //3 绘制特征点match
-    /*
-    Mat siftImg;
-    drawKeypoints( image, keypoints, siftImg, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
-    imshow("Sift keypoints", siftImg );
-    cout<<"keypoint numbers of sift: "<<keypoints.size()<<endl;
-     */
-    //Once again with ORB
-    OrbFeatureDetector orb_detect(minHessian);
-    orb_detect.detect(image ,keypoints);
-    Mat orbImg;
-    drawKeypoints(image, keypoints, orbImg, Scalar::all(-1), DrawMatchesFlags::DEFAULT);
-    imshow("ORB keypoints", orbImg);
-    cout<<"Keypoints of ORB number: "<<keypoints.size()<<endl;
 
 
-}
 bool StereoImageProcess::StereoConstruct(const vector<Point2f> &matched_points_L, const vector<Point2f> &matched_points_R,
                                          vector<Point3f> &world_points,const double baseline,const double f)
 {
@@ -308,6 +320,38 @@ bool StereoImageProcess::StereoConstruct(const vector<Point2f> &matched_points_L
 
     return true;
 }
+
+bool StereoImageProcess::StereoConstruct(FeaturedImg &left, const FeaturedImg &right,
+                                         vector<Point2f> &matched_points_L,vector<Point3f> &world_points,
+                                         const double baseline, const double f, const double pixel_size)
+{
+
+    //Z=b*f/d
+    for(auto idx:left.matched_idx)
+    {
+        matched_points_L.push_back(left.key_pts[idx].pt);
+    }
+
+    vector<Point2f> matched_points_R;
+    for(auto idx:right.matched_idx)
+    {
+        matched_points_R.push_back(right.key_pts[idx].pt);
+    }
+    OriginImgCoord(matched_points_L,matched_points_R);
+
+    double d,Z,Y,X;
+    for(size_t i=0;i<matched_points_L.size();i++)
+    {
+        d=matched_points_L[i].x-matched_points_R[i].x;
+        Z=baseline*f/(d*pixel_size);
+        Y=Z*matched_points_L[i].y*pixel_size/f;
+        X=Z*matched_points_L[i].x*pixel_size/f;
+        world_points.push_back(Point3f(X,Y,Z));
+        left.matched_3d.push_back(Point3f(X,Y,Z));
+    }
+
+}
+
 
 
 void StereoImageProcess::stereo_test(Mat &imgL, Mat &imgR)
@@ -353,18 +397,31 @@ void StereoImageProcess::OriginImgCoord(vector<Point2f> &pts_L,vector<Point2f> &
 
 }
 
-void StereoImageProcess::FeaturesMatching(Mat &img_1, Mat &img_2, int max_points,
-                                          vector<Point2f> &matched_points_1, vector<Point2f> &matched_points_2)
+void StereoImageProcess::FeaturesMatching(FeaturedImg &left,FeaturedImg &right,Mat &img_matches,FEATURE_TYPE type)
 {
-    vector<KeyPoint> key_img1;
-    vector<KeyPoint> key_img2;
-    vector< DMatch > good_matches;
-    Mat descrip_1;
-    Mat descrip_2;
-    BasicImageProcess::BasicMatching(img_1, img_2, max_points,key_img1,key_img2,
-                                     descrip_1,descrip_2,good_matches,matched_points_1, matched_points_2);
-    OriginImgCoord(matched_points_1,matched_points_2);
+
+
+    left.top_left=this->corner_L;
+    right.top_left=this->corner_R;
+    vector< DMatch > matches;
+    BasicImageProcess::BasicMatching(type,left.img, right.img, left.key_pts,right.key_pts,
+                                     left.key_descrips,right.key_descrips,matches,
+                                     img_matches);
+    //Get idx of the left image
+    for(int i=0;i<matches.size();i++)
+    {
+        int idx_L=matches[i].queryIdx;
+        int idx_R=matches[i].trainIdx;
+        left.matched_idx.push_back(idx_L);
+        right.matched_idx.push_back(idx_R);
+    }
+
+
 }
+
+
+
+
 FeaturedImg StereoImageProcess::Matching(Mat &img_L, Mat &img_R, int max_points,
                                          vector<Point2f> &matched_points_L, vector<Point2f> &matched_points_R)
 {
@@ -378,7 +435,7 @@ FeaturedImg StereoImageProcess::Matching(Mat &img_L, Mat &img_R, int max_points,
                                      left.key_descrips,right.key_descrips,matches,
                                      matched_points_L, matched_points_R);
     //Get idx of the left image
-    for(int i=1;i<matches.size();i++)
+    for(int i=0;i<matches.size();i++)
     {
         int idx=matches[i].queryIdx;
         left.matched_idx.push_back(idx);
@@ -390,7 +447,7 @@ FeaturedImg StereoImageProcess::Matching(Mat &img_L, Mat &img_R, int max_points,
 
 }
 
-void ObjectTracker::Track(FeaturedImg &target)
+void ObjectTracker::Track(FeaturedImg &target,vector<DMatch> &good_matches)
 {
 
     /*
@@ -427,10 +484,11 @@ void ObjectTracker::Track(FeaturedImg &target)
 
     matcher.match(refer.key_descrips,target.key_descrips,matches);
 
+
     /*
      * Step4:Find good match
      */
-    vector< DMatch > good_matches;
+    //vector< DMatch > good_matches;
     RefineMatches(matches,good_matches);
     Mat img_matches;
     //drawMatches(img_2,key_imgR,img_1,key_imgL,good_matches,img_matches);
@@ -468,7 +526,7 @@ void PoseEst::SolvePnP(const vector<Point2f> &image_coords, const vector<Point3f
                        Mat &R_mat, Mat &t_vec)
 {
     if(image_coords.size()==world_coords.size() )
-       //&& R_mat.rows==0)
+        //&& R_mat.rows==0)
     {
         /* When there are enough points collected,
          * calculate the matrix R|t with PnP algorithm
@@ -498,7 +556,7 @@ void PoseEst::MarkPtOnImg(Mat &img, const Point2f &img_coord)
 bool ObjectTracker::RefineMatches(const vector<DMatch> &raw_matches, vector<DMatch> &good_matches,
                                   FEATURE_TYPE type)
 {
-    int dist=55;
+    int dist=40;
     for (int i=0;i<raw_matches.size();i++)
     {
         if( raw_matches[i].distance<dist)
@@ -526,18 +584,18 @@ void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat 
     for(int i=0;i<num;i++)
     {
         priv.push_back(Mat_<double>(ref[i]-Pp));
-        cout<<"priv["<<i<<"]:"<<priv[i]<<endl;
+        //cout<<"priv["<<i<<"]:"<<priv[i]<<endl;
     }
     for(int i=0;i<num;i++)
     {
         curr.push_back(Mat_<double>(tgt[i]-Pc));
-        cout<<"curr["<<i<<"]:"<<curr[i]<<endl;
+        //cout<<"curr["<<i<<"]:"<<curr[i]<<endl;
     }
 
 
     //Debug info
-    cout<<"Pp:"<<Pp<<endl;
-    cout<<"Pc:"<<Pc<<endl;
+    //cout<<"Pp:"<<Pp<<endl;
+    // cout<<"Pc:"<<Pc<<endl;
 
     //Step2:Calc norm
     Mat Np=Mat::zeros(3,1,CV_64F);
@@ -547,9 +605,9 @@ void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat 
     Mat Na=Nc.cross(Np);
 
     //Debug info
-    cout<<"Np:"<<Np<<endl;
-    cout<<"Nc:"<<Nc<<endl;
-    cout<<"Na:"<<Na<<endl;
+    // cout<<"Np:"<<Np<<endl;
+    // cout<<"Nc:"<<Nc<<endl;
+    // cout<<"Na:"<<Na<<endl;
 
     //Step3: Calc qa & qp
     //Key:Find cos_half_fi,sin_half_fi & cos_half_th,sin_half_th
@@ -559,11 +617,11 @@ void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat 
     double cos_half_fi=sqrt((1+cos_fi)/2);
     double sin_half_fi=sqrt((1-cos_fi)/2);
     //Debug info
-    cout<<"cos_fi:"<<cos_fi<<endl;
-    cout<<"cos_half_fi:"<<cos_half_fi<<endl;
-    cout<<"sin_half_fi:"<<sin_half_fi<<endl;
+    // cout<<"cos_fi:"<<cos_fi<<endl;
+    // cout<<"cos_half_fi:"<<cos_half_fi<<endl;
+    // cout<<"sin_half_fi:"<<sin_half_fi<<endl;
     Quaternion qa(cos_half_fi,
-                 Na.at<double>(0,0)*sin_half_fi, Na.at<double>(1,0)*sin_half_fi, Na.at<double>(2,0)*sin_half_fi);
+                  Na.at<double>(0,0)*sin_half_fi, Na.at<double>(1,0)*sin_half_fi, Na.at<double>(2,0)*sin_half_fi);
     Mat Ra=Mat::zeros(3,3,CV_64F);
     qa.ToRMat(Ra);
     //For qp, C&S need to be calculated first
@@ -574,6 +632,7 @@ void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat 
         curr[i]=Ra*curr[i];
     }
     //********************************************
+    //Now points from two set are in the same plane
     double C=0;
     for(int i=0;i<num;i++)
     {
@@ -587,18 +646,19 @@ void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat 
         //cout<<"Temp["<<i<<"]:"<<temp_N<<endl;
         S=S+Np.dot(temp);
     }
+    //Find cos_half_th,sin_half_th to calc qp
 
     double cos_th=C/sqrt(C*C+S*S);
     double cos_half_th=sqrt((1+cos_th)/2);
     double sin_half_th=sqrt((1-cos_th)/2);
 
     //Debug info
-    cout<<"cos_th:"<<cos_th<<endl;
-    cout<<"cos_half_th:"<<cos_half_th<<endl;
-    cout<<"sin_half_th:"<<sin_half_th<<endl;
+    //cout<<"cos_th:"<<cos_th<<endl;
+    //cout<<"cos_half_th:"<<cos_half_th<<endl;
+    //cout<<"sin_half_th:"<<sin_half_th<<endl;
 
     Quaternion qp(cos_half_th,
-                 Np.at<double>(0,0)*sin_half_th, Np.at<double>(1,0)*sin_half_th, Np.at<double>(2,0)*sin_half_th);
+                  Np.at<double>(0,0)*sin_half_th, Np.at<double>(1,0)*sin_half_th, Np.at<double>(2,0)*sin_half_th);
     //Step4:Calc quaternion-derived rotation matrix Ra &Rq
 
     Mat Rp=Mat::zeros(3,3,CV_64F);
@@ -606,27 +666,20 @@ void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat 
     Rot=Rp*Ra;
 
     //Debug info
-    cout<<"Ra:"<<Ra<<endl;
-    cout<<"Rp:"<<Rp<<endl;
-    cout<<"R:"<<Rot<<endl;
+    //cout<<"Ra:"<<Ra<<endl;
+    //cout<<"Rp:"<<Rp<<endl;
+    cout<<"Relative R:"<<Rot<<endl;
 
     //Step6:Calc matrix T
     Mat _Poc,_Pop;
     _Poc=Mat_<double>(Pc);
     _Pop=Mat_<double>(Pp);
-    //transpose(Mat(P_oc),_Poc);
-    //transpose(Mat(P_op),_Pop);
     Tran=_Pop-Rot*_Poc;
-
-    cout<<"Tran:"<<Tran<<endl;
+    cout<<"Relative T:"<<Tran<<endl;
     return ;
-
-
 }
 bool BasicImageProcess::Histogram(const Mat &input, Mat &output)
 {
     return true;
 }
-
-
 

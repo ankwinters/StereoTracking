@@ -8,12 +8,12 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-
-#include <opencv2/nonfree/nonfree.hpp>
 #include <opencv2/features2d/features2d.hpp>
+#include <opencv2/nonfree/nonfree.hpp>
 #include <opencv2/nonfree/features2d.hpp>
 #include <vector>
 using namespace cv;
+using namespace std;
 
 typedef int FEATURE_TYPE;
 #define SIFT_FEATURE 0
@@ -35,13 +35,14 @@ public:
     {
 
     }*/
+
     Mat img;
     vector<KeyPoint> key_pts;
     Mat key_descrips;
     vector<int> matched_idx;
     vector<Point3f> matched_3d;
     //For coordinate computing
-    Point2f top_left;
+    Point2f top_left={0.,0.};
 
 };
 //Math class
@@ -50,7 +51,7 @@ class Quaternion
 {
 public:
     Quaternion(double R,double G,double B,double A):
-    r(R),g(G),b(B),a(A),s(0){ }
+            r(R),g(G),b(B),a(A),s(0){ }
     Quaternion(double R,double G,double B,double A,double S):
             r(R),g(G),b(B),a(A),s(S){ }
 
@@ -88,9 +89,9 @@ public:
 class PoseEst
 {
 public:
-    bool SetCameraMatrix(const Mat & camera_mat)
+    void SetCameraMatrix(const Mat & camera_mat)
     {
-        camera_matrix=camera_mat;
+        camera_matrix=camera_mat.clone();
     }
     void SolvePnP(const vector<Point2f> &image_coords,const vector<Point3f> &world_coords,
                   Mat &R,Mat &t);
@@ -118,9 +119,12 @@ class BasicImageProcess
 public:
     bool Histogram(const Mat &input,Mat &output);
     void BasicMatching(Mat &img_1, Mat &img_2, int max_points,
-                          vector<KeyPoint> &key_img1,vector<KeyPoint> &key_img2,
-                          Mat &descrip_1,Mat &descrip_2,vector< DMatch > &good_matches,
-                          vector<Point2f> &matched_points_1, vector<Point2f> &matched_points_2);
+                       vector<KeyPoint> &key_img1,vector<KeyPoint> &key_img2,
+                       Mat &descrip_1,Mat &descrip_2,vector< DMatch > &good_matches,
+                       vector<Point2f> &matched_points_1, vector<Point2f> &matched_points_2);
+    void BasicMatching(FEATURE_TYPE type,Mat &img_1, Mat &img_2,
+                       vector<KeyPoint> &key_img1,vector<KeyPoint> &key_img2,
+                       Mat &descrip_1,Mat &descrip_2, vector< DMatch > &good_matches, Mat &matched_img);
 
 
 protected:
@@ -130,7 +134,7 @@ protected:
     bool FindGoodMatches(vector<DMatch> &raw_matches, const vector<KeyPoint> &query_pts,
                          const vector<KeyPoint> &train_pts,int num_points, vector<DMatch> &good_matches);
     bool GetMatchCoords(vector<DMatch> &matches,vector<KeyPoint> &key1,vector<KeyPoint> &key2,
-                         vector<Point2f> &matched_pts_1,vector<Point2f> &matched_pts_2);
+                        vector<Point2f> &matched_pts_1,vector<Point2f> &matched_pts_2);
     bool RefineKp(FeaturedImg &fimg);
 
 
@@ -147,10 +151,12 @@ public:
     bool ImageInput(const Mat &img_L, Mat &out_img_L, const Mat &img_R,Mat &out_img_R);
     bool StereoConstruct(const vector<Point2f> &matched_points_L,const vector<Point2f> &matched_points_R,
                          vector<Point3f> &world_points,const double baseline,const double f);
+    bool StereoConstruct(FeaturedImg &left, const FeaturedImg &right,
+                         vector<Point2f> &image_points_L,vector<Point3f> &world_points,
+                         const double baseline=120.0,const double f=2.5, const double pixel_size=4.65e-3);
     FeaturedImg Matching(Mat &img_L, Mat &img_R, int max_points,vector<Point2f> &matched_points_1,
                          vector<Point2f> &matched_points_2);
-    void FeaturesMatching(Mat &img_1, Mat &img_2, int max_points,
-                          vector<Point2f> &matched_points_1, vector<Point2f> &matched_points_2);
+    void FeaturesMatching(FeaturedImg &left, FeaturedImg &right,Mat &img_matches,FEATURE_TYPE type=ORB_FEATURE);
 
     void stereo_test(Mat &img1, Mat &img2);
     /* SliceImage:To detect the object from the both images.
@@ -180,8 +186,9 @@ class ObjectTracker:public BasicImageProcess
 {
 public:
     ObjectTracker(const FeaturedImg &fiducial):refer(fiducial){ }
-    ObjectTracker()= default;
-    void Track(FeaturedImg &target);
+         ObjectTracker()= default;
+    void Track(FeaturedImg &target,vector<DMatch> &good_matches);
+
     void CalcMotions(vector<Point3f> &ref,vector<Point3f> &tgt,Mat &Rot,Mat &Tran);
 
 
@@ -221,6 +228,7 @@ void Quaternion::ToRMatrix(Mat &R)
 
 void Quaternion::ToRMat(Mat &R)
 {
+    //Alternative method to calc R
     R.at<double>(0,0)=1-2*b*b-2*a*a;
     R.at<double>(1,0)=2*(g*b+a*r);
     R.at<double>(2,0)=2*(g*a-b*r);
@@ -243,11 +251,11 @@ double ObjectTracker::GetNormal(const Mat &p1, const Mat &p2, const Mat &p3,Mat 
 {
     double a,b,c;
     a = ( (p2.at<double>(1,0)-p1.at<double>(1,0))*(p3.at<double>(2,0)-p1.at<double>(2,0))-
-            (p2.at<double>(2,0)-p1.at<double>(2,0))*(p3.at<double>(1,0)-p1.at<double>(1,0)) );
+          (p2.at<double>(2,0)-p1.at<double>(2,0))*(p3.at<double>(1,0)-p1.at<double>(1,0)) );
     b = ( (p2.at<double>(2,0)-p1.at<double>(2,0))*(p3.at<double>(0,0)-p1.at<double>(0,0))-
-            (p2.at<double>(0,0)-p1.at<double>(0,0))*(p3.at<double>(2,0)-p1.at<double>(2,0)) );
+          (p2.at<double>(0,0)-p1.at<double>(0,0))*(p3.at<double>(2,0)-p1.at<double>(2,0)) );
     c = ( (p2.at<double>(0,0)-p1.at<double>(0,0))*(p3.at<double>(1,0)-p1.at<double>(1,0))-
-            (p2.at<double>(1,0)-p1.at<double>(1,0))*(p3.at<double>(0,0)-p1.at<double>(0,0)) );
+          (p2.at<double>(1,0)-p1.at<double>(1,0))*(p3.at<double>(0,0)-p1.at<double>(0,0)) );
 
     //a = ( (p2.y-p1.y)*(p3.z-p1.z)-(p2.z-p1.z)*(p3.y-p1.y) );
     //b = ( (p2.z-p1.z)*(p3.x-p1.x)-(p2.x-p1.x)*(p3.z-p1.z) );
@@ -260,9 +268,6 @@ double ObjectTracker::GetNormal(const Mat &p1, const Mat &p2, const Mat &p3,Mat 
         output.at<double>(1,0)=b/length;
         output.at<double>(2,0)=c/length;
     }
-
-
-
     return length;
 
 }
@@ -279,9 +284,9 @@ double ObjectTracker::CalcNorm(const Mat &input)
 Point3f ObjectTracker::CalcCentroid(vector<Point3f> &pts)
 {
     Point3f p;
-    for(int i=0;i<pts.size();i++)
+    for(auto item:pts)
     {
-        p+=pts[i];
+        p+=item;
     }
     p.x=p.x/pts.size();
     p.y=p.y/pts.size();
