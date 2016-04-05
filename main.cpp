@@ -52,16 +52,26 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 
             //Timer starts.
             auto start=std::chrono::system_clock::now();
-            //imgprocess.ImageInput(imgL,imgL,imgR,imgR);
-            //first=imgprocess.Matching(imgL,imgR,5,matches_L,matches_R);
-            //imgprocess.StereoConstruct(matches_L, matches_R, world_coord, 120.0, 2.5);
 
-            imgprocess.ImageInput(imgL,image_L.img,imgR,image_R.img);
-            imgprocess.FeaturesMatching(image_L,image_R,img_matched);
-            imgprocess.StereoConstruct(image_L,image_R,matches_L,world_coord);
+            ChessboardGTruth gt;
+
+            //gt.FindCorners(imgR,matches_R);
+            gt.OneFrameTruth(imgL,imgR,R,t,matches_L,matches_R,world_coord);
+            gt.OneFrameTruth(imgL_2,imgR_2,R2,t2,matches_L2,matches_R2,world_coord_2);
+            ObjectTracker tk;
 
 
-            poseEst.SolvePnP(matches_L, world_coord, R, t);
+            tk.RansacMotion(world_coord,world_coord_2,R,t,200,10);
+
+            //tk.CalcMotions(a,b,R,t);
+            //tk.CalcRTerror(R,t,world_coord,world_coord_2);
+
+
+            //imgprocess.ImageInput(imgL,image_L.img,imgR,image_R.img);
+            //imgprocess.FeaturesMatching(image_L,image_R,img_matched);
+            //imgprocess.StereoConstruct(image_L,image_R,matches_L,world_coord);
+
+            //poseEst.SolvePnP(matches_L, world_coord, R, t);
             //Timer ends.
             auto end=std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
@@ -74,13 +84,16 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
             file << "matched_points of the left image:" << endl;
             for (auto i:matches_L)
                 file << i << " ";
-            //file << endl << "matched_points of the right image:" << endl;
-            //for (auto j:matches_R)
-            //    file << j << " ";
+            file << endl << "matched_points of the right image:" << endl;
+            for (auto j:matches_R)
+                file << j << " ";
             file << endl << "3D reconstruction:" << endl;
             for (auto k:world_coord)
                 file << k << " ";
-            file << endl;
+            file << endl << "3D reconstruction2:" << endl;
+            for (auto k:world_coord_2)
+                file << k << " ";
+            file << "\n"<<endl ;
             file.close();
         }
         //For debug
@@ -96,11 +109,12 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 
 
     }
-    if  ( event == EVENT_RBUTTONDOWN && R.rows!=0)
+    if  ( event == EVENT_RBUTTONDOWN )
     {
         cout << "Right button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
 
         StereoImageProcess imgprocess;
+        Mat img_matched;
         /**For debugging.Input all data into a file**/
         //imgprocess.ImageInput(imgL_2,imgL_2,imgR_2,imgR_2);
         //imgprocess.PrintCorners();
@@ -110,14 +124,26 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         //auto second=imgprocess.Matching(imgL_2,imgR_2,5,matches_L2,matches_R2);
         //imgprocess.StereoConstruct(matches_L2, matches_R2, world_coord_2, 120.0, 2.5);
         //poseEst.SolvePnP(matches_L2, world_coord_2, R, t);
-        Mat img_matched;
+        auto start=std::chrono::system_clock::now();
+
 
 
         imgprocess.ImageInput(imgL_2,image_L2.img,imgR_2,image_R2.img);
-        imgprocess.FeaturesMatching(image_L2,image_R2,img_matched);
-        imgprocess.StereoConstruct(image_L2,image_R2,matches_L2,world_coord_2);
+        imgprocess.FeaturesMatching(image_L2,image_R2,img_matched,ORB_FEATURE);
+        imshow("img_matched",img_matched);
 
+        imgprocess.StereoConstruct(image_L2,image_R2,matches_L2,world_coord_2);
+        //poseEst.SolvePnP(matches_L2,world_coord_2,R2,t2);
+        poseEst.PnPCheck(image_L2,R2,t2);
+
+        auto end=std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+        cout<<"Pose estimation time:"<<elapsed_seconds.count()<<endl;
+
+
+        /*
         vector<DMatch> matched;
+
 
         ObjectTracker tk(image_L);
         //cout<<"Debug info"<<endl;
@@ -143,6 +169,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
             cout<<"points from b:"<<j<<endl;
 
         tk.CalcMotions(a,b,rotation,translation);
+        */
 
 
         /*
@@ -211,6 +238,7 @@ int main( int argc, char** argv)
 
 
 
+
     if( argc < 2)
     {
         Test();
@@ -221,6 +249,7 @@ int main( int argc, char** argv)
     ReadImage(argv[3],argv[4],imgL_2,imgR_2);
 
     image = imread(argv[1], CV_LOAD_IMAGE_COLOR);   // Read the file
+
 
     cout<<"image size:"<<image.rows<<"*"<<image.cols<<endl;
     namedWindow( "PnP", WINDOW_AUTOSIZE );// Create a window for display.

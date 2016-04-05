@@ -4,6 +4,9 @@
 
 #ifndef POEST_PNP_H
 #define POEST_PNP_H
+
+#include <ctime>
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
@@ -95,18 +98,20 @@ public:
     }
     void SolvePnP(const vector<Point2f> &image_coords,const vector<Point3f> &world_coords,
                   Mat &R,Mat &t);
-    Point3f CalcWldCoord(const Mat &R,const Mat &t,const Point2f &img_coord);
+
+
+    void PnPCheck(FeaturedImg &left,Mat &R_mat, Mat &t_vec);
     void MarkPtOnImg(Mat &img,const Point2f &img_coord);
 
 private:
-    /*
+
 
     Mat camera_matrix=(Mat_<float>(3,3)<< 586.7, 0., 399.5,
             0., 586.4,299.5,
-            0., 0., 1.);*/
-    Mat camera_matrix=(Mat_<float>(3,3)<< 537.6, 0., 400,
-            0., 537.6,300,
             0., 0., 1.);
+    //Mat camera_matrix=(Mat_<float>(3,3)<< 537.6, 0., 400,
+    //        0., 537.6,300,
+    //        0., 0., 1.);
     vector<double> disto;
 
 
@@ -117,7 +122,6 @@ private:
 class BasicImageProcess
 {
 public:
-    bool Histogram(const Mat &input,Mat &output);
     void BasicMatching(Mat &img_1, Mat &img_2, int max_points,
                        vector<KeyPoint> &key_img1,vector<KeyPoint> &key_img2,
                        Mat &descrip_1,Mat &descrip_2,vector< DMatch > &good_matches,
@@ -130,12 +134,14 @@ public:
 protected:
     bool SliceImage(const Mat &input, Mat &output, Point2f &top_left);
     bool DetectExtract(const Mat &img,vector<KeyPoint> &key_points,
-                       Mat &descrip,FEATURE_TYPE type=ORB_FEATURE, int minHessian=400);
+                       Mat &descrip,FEATURE_TYPE type=ORB_FEATURE, int minHessian=800);
     bool FindGoodMatches(vector<DMatch> &raw_matches, const vector<KeyPoint> &query_pts,
-                         const vector<KeyPoint> &train_pts,int num_points, vector<DMatch> &good_matches);
+                         const vector<KeyPoint> &train_pts,int num_points, vector<DMatch> &good_matches,
+                         FEATURE_TYPE type=ORB_FEATURE);
     bool GetMatchCoords(vector<DMatch> &matches,vector<KeyPoint> &key1,vector<KeyPoint> &key2,
                         vector<Point2f> &matched_pts_1,vector<Point2f> &matched_pts_2);
     bool RefineKp(FeaturedImg &fimg);
+
 
 
 
@@ -150,7 +156,8 @@ public:
 
     bool ImageInput(const Mat &img_L, Mat &out_img_L, const Mat &img_R,Mat &out_img_R);
     bool StereoConstruct(const vector<Point2f> &matched_points_L,const vector<Point2f> &matched_points_R,
-                         vector<Point3f> &world_points,const double baseline,const double f);
+                         vector<Point3f> &world_points,
+                         const double baseline=120.0,const double f=2.5,const double pixel_size=4.65e-3);
     bool StereoConstruct(FeaturedImg &left, const FeaturedImg &right,
                          vector<Point2f> &image_points_L,vector<Point3f> &world_points,
                          const double baseline=120.0,const double f=2.5, const double pixel_size=4.65e-3);
@@ -172,6 +179,9 @@ private:
     void OriginImgCoord(vector<Point2f> &pts_L,vector<Point2f> &pts_R);
     Point2f corner_L;
     Point2f corner_R;
+    Mat camera_matrix=(Mat_<float>(3,3)<< 586.7, 0., 399.5,
+            0., 586.4,299.5,
+            0., 0., 1.);
 
 
 
@@ -190,12 +200,17 @@ public:
     void Track(FeaturedImg &target,vector<DMatch> &good_matches);
 
     void CalcMotions(vector<Point3f> &ref,vector<Point3f> &tgt,Mat &Rot,Mat &Tran);
+    bool RansacMotion(const vector<Point3f> &priv, const vector<Point3f> &curr,Mat &Rot,Mat &Tran,
+                      int iteration=200, double err_threash=2.5);
+    double CalcRTerror(const Mat &R,const Mat &T,const vector<Point3f> &ref,const vector<Point3f> &tgt,
+                       vector<double> &err);
 
 
 private:
     FeaturedImg refer;
     bool RefineMatches(const vector<DMatch> &raw_matches, vector<DMatch> &good_matches,FEATURE_TYPE type=ORB_FEATURE);
-    bool RefineMotions();
+
+
 
 private:
     inline double GetNormal(const Mat &p1, const Mat &p2, const Mat &p3,Mat &output);
@@ -205,6 +220,33 @@ private:
 
 
 };
+
+//Find the ground truth of the RT with chessboard
+class ChessboardGTruth: protected StereoImageProcess
+{
+public:
+    void OneFrameTruth(const Mat &left, const Mat &right, Mat &R, Mat &T);
+    void OneFrameTruth(const Mat &left, const Mat &right, Mat &R, Mat &T,
+                       vector<Point2f> &matched_L, vector<Point3f> &world);
+    void OneFrameTruth(const Mat &left, const Mat &right, Mat &R, Mat &T,
+                       vector<Point2f> &matched_L, vector<Point2f> &matched_R,vector<Point3f> &world);
+    void FramesTruth(const Mat &first ,const Mat &second, Mat &R, Mat &T);
+
+
+    bool FindCorners(const Mat &input,vector<Point2f> &corners);
+
+
+private:
+    bool RansacMotion(const vector<Point3f> &priv, const vector<Point3f> &curr,int iteration=100, int threash=0.3);
+
+    const Size board_size={9,6};
+
+
+
+};
+
+
+
 /*
  * inline functions
  */
