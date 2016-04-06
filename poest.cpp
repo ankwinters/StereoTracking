@@ -41,7 +41,7 @@ bool BasicImageProcess::DetectExtract( const Mat &img,vector<KeyPoint> &key_poin
 void BasicImageProcess::BasicMatching(Mat &img_1, Mat &img_2, int max_points,
                                       vector<KeyPoint> &key_img1,vector<KeyPoint> &key_img2,
                                       Mat &descrip_1,Mat &descrip_2, vector< DMatch > &good_matches,
-                                      vector<Point2f> &matched_points_1, vector<Point2f> &matched_points_2)
+                                      vector<Point2d> &matched_points_1, vector<Point2d> &matched_points_2)
 {
 
     DetectExtract(img_1, key_img1, descrip_1);
@@ -126,8 +126,9 @@ void BasicImageProcess::BasicMatching(FEATURE_TYPE type,Mat &img_1, Mat &img_2,
 
 
 
-bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2f &top_left)
+bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2d &top_left)
 {
+    /*
 
     Mat gray;
 
@@ -164,8 +165,8 @@ bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2f &top_l
     int largest_contour_index=0;
     double largest_area=0;
     Rect bounding_rect;
-    Point2f tl;
-    Point2f br;
+    Point2d tl;
+    Point2d br;
 
     for( int i = 0; i< contours.size(); i++ )
     {
@@ -186,20 +187,20 @@ bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2f &top_l
     //do some change
 
     const int size=20;
-    float x=0;
-    float y=0;
+    double x=0;
+    double y=0;
 
     (tl.x-size>0)?(x=tl.x-size):(x=tl.x);
     (tl.y-size>0)?(y=tl.y-size):(y=tl.y);
 
-    top_left=Point2f(x,y);
+    top_left=Point2d(x,y);
 
     (br.x+size<input.cols)?(x=br.x+size):(x=br.x);
     (br.y+size<input.rows)?(y=br.y+size):(y=br.y);
 
-    bounding_rect=Rect(top_left,Point2f(x,y));
+    bounding_rect=Rect(top_left,Point2d(x,y));
 
-
+*/
 
 /*
     drawContours( input, contours,largest_contour_index, Scalar( 255,255,255));
@@ -210,16 +211,17 @@ bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2f &top_l
     //drawContours( input, contours,largest_contour_index, Scalar( 255,255,255));
     //input_copy=input.clone();
     //Implement Sharpening Filter
-    //Mat kernel = (Mat_<float>(3,3) << 0,-1,0,-1,5,-1,0,-1,0);
+    //Mat kernel = (Mat_<double>(3,3) << 0,-1,0,-1,5,-1,0,-1,0);
     //filter2D(input_copy,input_copy,input.depth(),kernel);
 
 
-    output=input_copy(bounding_rect);
-    //output=input_copy.clone();
-    //top_left=Point2f(0,0);
+    //output=input_copy(bounding_rect);
+    cvtColor(input, output, CV_BGR2GRAY);
+    //output=input.clone();
+    top_left=Point2d(0,0);
 
 
-    equalizeHist( output,output );
+    //equalizeHist( output,output );
 
      //imshow("output",output);
     //rectangle(input_copy, bounding_rect,  Scalar(0,255,0),2, 8,0);
@@ -238,8 +240,8 @@ bool BasicImageProcess::FindGoodMatches(vector<DMatch> &raw_matches,const vector
 
     double threshold=0.05;
 
-    vector<Point2f> matches_1;
-    vector<Point2f> matches_2;
+    vector<Point2d> matches_1;
+    vector<Point2d> matches_2;
 
     for( int i = 0; i < raw_matches.size(); i++ )
     {
@@ -304,7 +306,7 @@ bool BasicImageProcess::FindGoodMatches(vector<DMatch> &raw_matches,const vector
 }
 
 bool BasicImageProcess::GetMatchCoords(vector<DMatch> &matches, vector<KeyPoint> &key1, vector<KeyPoint> &key2,
-                                       vector<Point2f> &matched_pts_1, vector<Point2f> &matched_pts_2)
+                                       vector<Point2d> &matched_pts_1, vector<Point2d> &matched_pts_2)
 {
     long num_matches = matches.size();
     //Step5:Output the coordinates of matched points.
@@ -349,29 +351,32 @@ bool StereoImageProcess::DetectObject(Mat &src_img, Mat &obj_img)
 
 
 
-bool StereoImageProcess::StereoConstruct(const vector<Point2f> &matched_points_L, const vector<Point2f> &matched_points_R,
-                                         vector<Point3f> &world_points,const double baseline,const double f,const double pixel_size)
+bool StereoImageProcess::StereoConstruct(const vector<Point2d> &matched_points_L, const vector<Point2d> &matched_points_R,
+                                         vector<Point3d> &world_points,const double baseline,const double f,const double pixel_size)
 {
     //Get coords of the original image
     size_t num_points=matched_points_L.size();
     //double pixel_size=4.65e-3;
     //Z=b*f/d
     double d,Z,Y,X;
+    //cout<<"debug info.."<<endl;
+
     for(size_t i=0;i<num_points;i++)
     {
         //Transform them into the same world coordinate.
         d=matched_points_L[i].x-matched_points_R[i].x;
         Z=baseline*f/(d*pixel_size);
-        Y=pixel_size*Z*(matched_points_L[i].y)/f;
-        X=pixel_size*Z*(matched_points_L[i].x)/f;
-        world_points.push_back(Point3f(X,Y,Z));
+        Y=pixel_size*Z*(matched_points_L[i].y-this->camera_matrix.at<double>(1,2))/f;
+        X=pixel_size*Z*(matched_points_L[i].x-this->camera_matrix.at<double>(0,2))/f;
+        //cout<<"X["<<i<<"]:"<<X<<endl;
+        world_points.push_back(Point3d(X,Y,Z));
     }
 
     return true;
 }
 
 bool StereoImageProcess::StereoConstruct(FeaturedImg &left, const FeaturedImg &right,
-                                         vector<Point2f> &matched_points_L,vector<Point3f> &world_points,
+                                         vector<Point2d> &matched_points_L,vector<Point3d> &world_points,
                                          const double baseline, const double f, const double pixel_size)
 {
 
@@ -381,7 +386,7 @@ bool StereoImageProcess::StereoConstruct(FeaturedImg &left, const FeaturedImg &r
         matched_points_L.push_back(left.key_pts[idx].pt);
     }
 
-    vector<Point2f> matched_points_R;
+    vector<Point2d> matched_points_R;
     for(auto idx:right.matched_idx)
     {
         matched_points_R.push_back(right.key_pts[idx].pt);
@@ -393,10 +398,10 @@ bool StereoImageProcess::StereoConstruct(FeaturedImg &left, const FeaturedImg &r
     {
         d=matched_points_L[i].x-matched_points_R[i].x;
         Z=baseline*f/(d*pixel_size);
-        Y=Z*matched_points_L[i].y*pixel_size/f;
-        X=Z*matched_points_L[i].x*pixel_size/f;
-        world_points.push_back(Point3f(X,Y,Z));
-        left.matched_3d.push_back(Point3f(X,Y,Z));
+        Y=pixel_size*Z*(matched_points_L[i].y-this->camera_matrix.at<double>(1,2))/f;
+        X=pixel_size*Z*(matched_points_L[i].x-this->camera_matrix.at<double>(0,2))/f;
+        world_points.push_back(Point3d(X,Y,Z));
+        left.matched_3d.push_back(Point3d(X,Y,Z));
     }
 
 }
@@ -430,7 +435,7 @@ void StereoImageProcess::stereo_test(Mat &imgL, Mat &imgR)
 
     return ;
 }
-void StereoImageProcess::OriginImgCoord(vector<Point2f> &pts_L,vector<Point2f> &pts_R)
+void StereoImageProcess::OriginImgCoord(vector<Point2d> &pts_L,vector<Point2d> &pts_R)
 {
     if(pts_L.size()!=pts_R.size())
     {
@@ -472,7 +477,7 @@ void StereoImageProcess::FeaturesMatching(FeaturedImg &left,FeaturedImg &right,M
 
 
 FeaturedImg StereoImageProcess::Matching(Mat &img_L, Mat &img_R, int max_points,
-                                         vector<Point2f> &matched_points_L, vector<Point2f> &matched_points_R)
+                                         vector<Point2d> &matched_points_L, vector<Point2d> &matched_points_R)
 {
     FeaturedImg left,right;
     left.img=img_L;
@@ -551,7 +556,7 @@ void ObjectTracker::Track(FeaturedImg &target,vector<DMatch> &good_matches)
 }
 
 
-void PoseEst::SolvePnP(const vector<Point2f> &image_coords, const vector<Point3f> &world_coords,
+void PoseEst::SolvePnP(const vector<Point2d> &image_coords, const vector<Point3d> &world_coords,
                        Mat &R_mat, Mat &t_vec)
 {
     if( (image_coords.size()!=0) && (image_coords.size()==world_coords.size()) )
@@ -591,7 +596,7 @@ void PoseEst::SolvePnP(const vector<Point2f> &image_coords, const vector<Point3f
 
         auto repro_error=[&]()
         {
-            vector<Point2f> projected;
+            vector<Point2d> projected;
             double totalErr=0;
             projectPoints(world_coords,R_Rod,t_vec,this->camera_matrix,this->disto,projected);
             for(int i = 0; i < (int)image_coords.size(); ++i )
@@ -622,7 +627,7 @@ void PoseEst::PnPCheck(FeaturedImg &left,Mat &R_mat, Mat &t_vec)
         /* When there are enough points collected,
          * calculate the matrix R|t with PnP algorithm
          */
-        vector<Point2f> image_coords;
+        vector<Point2d> image_coords;
         for(int i=0;i<left.matched_idx.size();i++)
         {
             image_coords.push_back(left.key_pts[left.matched_idx[i]].pt);
@@ -635,7 +640,7 @@ void PoseEst::PnPCheck(FeaturedImg &left,Mat &R_mat, Mat &t_vec)
         //std::chrono::duration<double> elapsed_seconds = end-start;
         Rodrigues(R_Rod,R_mat);
         //cout<<"solvePnP ITER time:"<<elapsed_seconds.count()<<endl;
-        cout<<"debug info"<<endl;
+        //cout<<"debug info"<<endl;
 
         for(int i=0,idx=0,erased=0;i<inliers.size();i++,idx++)
         {
@@ -677,9 +682,9 @@ void PoseEst::PnPCheck(FeaturedImg &left,Mat &R_mat, Mat &t_vec)
         cout<<endl;
         mat_print(R_t);
 
-        auto repro_error=[&](vector<Point3f> &world_coords)
+        auto repro_error=[&](vector<Point3d> &world_coords)
         {
-            vector<Point2f> projected;
+            vector<Point2d> projected;
             double totalErr=0;
             projectPoints(world_coords,R_Rod,t_vec,this->camera_matrix,this->disto,projected);
             for(int i = 0; i < (int)image_coords.size(); ++i )
@@ -704,7 +709,7 @@ void PoseEst::PnPCheck(FeaturedImg &left,Mat &R_mat, Mat &t_vec)
 
 }
 
-void PoseEst::MarkPtOnImg(Mat &img, const Point2f &img_coord)
+void PoseEst::MarkPtOnImg(Mat &img, const Point2d &img_coord)
 {
     circle(img,img_coord,5,Scalar(255,0,0),-1);
 }
@@ -727,7 +732,7 @@ bool ObjectTracker::RefineMatches(const vector<DMatch> &raw_matches, vector<DMat
 
 
 
-void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat &Rot, Mat &Tran)
+void ObjectTracker::CalcMotions(vector<Point3d> &ref, vector<Point3d> &tgt, Mat &Rot, Mat &Tran)
 {
     //* Calc with the method brought by Horn(1987)
     int num=3;//Number of points
@@ -735,8 +740,8 @@ void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat 
     //Step1 : calc the centroid
     //calc the centroid of the points from previous frame & current one
     //Change points to the centroid-based coords
-    Point3f Pp=CalcCentroid(ref);
-    Point3f Pc=CalcCentroid(tgt);
+    Point3d Pp=CalcCentroid(ref);
+    Point3d Pc=CalcCentroid(tgt);
     vector<Mat_<double> > priv;
     vector<Mat_<double> > curr;
     for(int i=0;i<num;i++)
@@ -838,24 +843,32 @@ void ObjectTracker::CalcMotions(vector<Point3f> &ref, vector<Point3f> &tgt, Mat 
 }
 
 
-bool ChessboardGTruth::FindCorners(const Mat &input,  vector<Point2f> &corners)
+bool ChessboardGTruth::FindCorners(const Mat &input,  vector<Point2d> &corners)
 {
     bool found;
-    found=findChessboardCorners( input, board_size, corners,
-                                   CV_CALIB_CB_ADAPTIVE_THRESH + CV_CALIB_CB_FAST_CHECK );
+    vector<Point2f> cor;
+    found=findChessboardCorners( input, board_size, cor,
+                                 CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK );
 
     //cout<<"debug info"<<endl;
     if(found)
     {
 
         Mat viewGray;
+        //cout<<"debug info"<<endl;
         cvtColor(input, viewGray, CV_BGR2GRAY);
-        cornerSubPix( viewGray, corners, Size(11,11),
+        //**Bug:cornerSubPix() only support Point2f
+        cornerSubPix( viewGray, cor, Size(11,11),
                       Size(-1,-1), TermCriteria( CV_TERMCRIT_EPS+CV_TERMCRIT_ITER, 30, 0.1 ));
         //debug info
+        //cout<<"debug.."<<endl;
         //Mat view=input.clone();
         //circle(view,corners[8],5,Scalar(255,0,0),-1);
         //imshow("view",view);
+        for(int i=0;i<cor.size();i++)
+            corners.push_back(Point2d(cor[i].x,cor[i].y));
+
+
         return true;
     }
     else
@@ -864,9 +877,9 @@ bool ChessboardGTruth::FindCorners(const Mat &input,  vector<Point2f> &corners)
 
 void ChessboardGTruth::OneFrameTruth(const Mat &left, const Mat &right, Mat &R, Mat &T)
 {
-    vector<Point2f> matched_L;
-    vector<Point2f> matched_R;
-    vector<Point3f> world_coords;
+    vector<Point2d> matched_L;
+    vector<Point2d> matched_R;
+    vector<Point3d> world_coords;
 
     if(FindCorners(left,matched_L) &&
        FindCorners(right,matched_R))
@@ -881,10 +894,10 @@ void ChessboardGTruth::OneFrameTruth(const Mat &left, const Mat &right, Mat &R, 
 
 }
 
-void ChessboardGTruth::OneFrameTruth(const Mat &left, const Mat &right, Mat &R, Mat &T, vector<Point2f> &matched_L,
-                                     vector<Point3f> &world)
+void ChessboardGTruth::OneFrameTruth(const Mat &left, const Mat &right, Mat &R, Mat &T, vector<Point2d> &matched_L,
+                                     vector<Point3d> &world)
 {
-    vector<Point2f> matched_R;
+    vector<Point2d> matched_R;
     if(FindCorners(left,matched_L) &&
        FindCorners(right,matched_R))
     {
@@ -896,17 +909,21 @@ void ChessboardGTruth::OneFrameTruth(const Mat &left, const Mat &right, Mat &R, 
 
 }
 
-void ChessboardGTruth::OneFrameTruth(const Mat &left, const Mat &right, Mat &R, Mat &T, vector<Point2f> &matched_L,
-                                     vector<Point2f> &matched_R, vector<Point3f> &world)
+void ChessboardGTruth::OneFrameTruth(const Mat &left, const Mat &right, Mat &R, Mat &T, vector<Point2d> &matched_L,
+                                     vector<Point2d> &matched_R, vector<Point3d> &world)
 {
-    if(FindCorners(left,matched_L) &&
-       FindCorners(right,matched_R))
+    //FindCorners(right,matched_R);
+
+    if( (FindCorners(left,matched_L)) &&
+                (FindCorners(right,matched_R)) )
     {
         StereoConstruct(matched_L,matched_R,world);
         PoseEst poest;
         poest.SolvePnP(matched_L,world,R,T);
+        //cout<<"Debug info..."<<endl;
+        return;
     }
-    return;
+   // exit(-1);
 }
 
 void ChessboardGTruth::FramesTruth(const Mat &first, const Mat &second, Mat &R, Mat &T)
@@ -914,7 +931,7 @@ void ChessboardGTruth::FramesTruth(const Mat &first, const Mat &second, Mat &R, 
 
 }
 
-double ObjectTracker::CalcRTerror(const Mat &R, const Mat &T,const vector<Point3f> &ref,const vector<Point3f> &tgt,
+double ObjectTracker::CalcRTerror(const Mat &R, const Mat &T,const vector<Point3d> &ref,const vector<Point3d> &tgt,
                                   vector<double> &err)
 {
     assert(ref.size()==tgt.size());
@@ -945,8 +962,8 @@ double ObjectTracker::CalcRTerror(const Mat &R, const Mat &T,const vector<Point3
 
 }
 
-bool ObjectTracker::RansacMotion(const vector<Point3f> &priv, const vector<Point3f> &curr, Mat &Rot, Mat &Tran,
-                                 int iteration, double err_threash)
+bool ObjectTracker::RansacMotion(const vector<Point3d> &priv, const vector<Point3d> &curr, Mat &Rot, Mat &Tran,
+                                 int iteration, double err_threash,double inlier_percent)
 {
     assert(priv.size()==curr.size());
     RNG _random((unsigned)time(NULL));
@@ -954,10 +971,10 @@ bool ObjectTracker::RansacMotion(const vector<Point3f> &priv, const vector<Point
     Mat _R,_T;
 
     vector<double> errors;
-    double max_inlier_rate=0.8;
+    double max_inlier_rate=inlier_percent;
     //Maybe unnecessary
     vector<int> inliers;
-    double min_errors=99999999;
+    double min_errors=99999999.0;
 
     //Start Ransac
     for(int i=0;i<iteration;i++)
@@ -972,8 +989,8 @@ bool ObjectTracker::RansacMotion(const vector<Point3f> &priv, const vector<Point
             idx[1] = _random.next() % (int) priv.size();
             idx[2] = _random.next() % (int) priv.size();
         }
-        vector<Point3f> ref;
-        vector<Point3f> tgt;
+        vector<Point3d> ref;
+        vector<Point3d> tgt;
         for(int j=0;j<3;j++)
         {
             ref.push_back(priv[idx[j]]);
@@ -1027,6 +1044,6 @@ bool ObjectTracker::RansacMotion(const vector<Point3f> &priv, const vector<Point
 
     cout<<"inliers rate:"<<max_inlier_rate<<" Best errors:"<<min_errors<<" Best R|t:"<<endl;
     mat_print(R_t);
-    return (min_errors==99999999);
+    return (min_errors==99999999.0);
 
 }

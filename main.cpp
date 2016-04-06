@@ -17,9 +17,9 @@ using namespace std;
  */
 
 Mat image;
-vector<Point3f> world_coord;
-//vector<Point2f> image_coord;
-vector<Point3f> world_coord_2;
+vector<Point3d> world_coord;
+//vector<Point2d> image_coord;
+vector<Point3d> world_coord_2;
 Mat R,t;
 Mat R2,t2;
 
@@ -28,9 +28,9 @@ Mat imgL,imgR;
 FeaturedImg image_L,image_R;
 FeaturedImg image_L2,image_R2;
 Mat imgL_2,imgR_2;
-vector<Point2f> matches_L,matches_R;
-vector<Point2f> matches_L2,matches_R2;
-vector<Point3f> matches_P,matches_N;
+vector<Point2d> matches_L,matches_R;
+vector<Point2d> matches_L2,matches_R2;
+vector<Point3d> matches_P,matches_N;
 PoseEst poseEst;
 
 
@@ -57,11 +57,11 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 
             //gt.FindCorners(imgR,matches_R);
             gt.OneFrameTruth(imgL,imgR,R,t,matches_L,matches_R,world_coord);
+
             gt.OneFrameTruth(imgL_2,imgR_2,R2,t2,matches_L2,matches_R2,world_coord_2);
             ObjectTracker tk;
 
-
-            tk.RansacMotion(world_coord,world_coord_2,R,t,200,10);
+            tk.RansacMotion(world_coord,world_coord_2,R,t);
 
             //tk.CalcMotions(a,b,R,t);
             //tk.CalcRTerror(R,t,world_coord,world_coord_2);
@@ -100,8 +100,8 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         else
         {
             /*
-            poseEst.MarkPtOnImg(image,Point2f(x,y));
-            Point3f A=poseEst.CalcWldCoord(R,t,Point2f(x,y));
+            poseEst.MarkPtOnImg(image,Point2d(x,y));
+            Point3d A=poseEst.CalcWldCoord(R,t,Point2d(x,y));
             cout<<"Let's see Point 3d:"<<A<<endl;
             */
             cout<<"can't run?"<<endl;
@@ -125,16 +125,36 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         //imgprocess.StereoConstruct(matches_L2, matches_R2, world_coord_2, 120.0, 2.5);
         //poseEst.SolvePnP(matches_L2, world_coord_2, R, t);
         auto start=std::chrono::system_clock::now();
+        imgprocess.ImageInput(imgL,image_L.img,imgR,image_R.img);
+        imgprocess.FeaturesMatching(image_L,image_R,img_matched,ORB_FEATURE);
+        //imshow("img_matched",img_matched);
 
+        imgprocess.StereoConstruct(image_L,image_R,matches_L,world_coord);
+        poseEst.PnPCheck(image_L,R,t);
 
 
         imgprocess.ImageInput(imgL_2,image_L2.img,imgR_2,image_R2.img);
         imgprocess.FeaturesMatching(image_L2,image_R2,img_matched,ORB_FEATURE);
-        imshow("img_matched",img_matched);
+        //imshow("img_matched",img_matched);
 
         imgprocess.StereoConstruct(image_L2,image_R2,matches_L2,world_coord_2);
         //poseEst.SolvePnP(matches_L2,world_coord_2,R2,t2);
         poseEst.PnPCheck(image_L2,R2,t2);
+
+        ObjectTracker tk(image_L);
+        vector<DMatch> a;
+        tk.Track(image_L2,a);
+        world_coord.clear();
+        world_coord_2.clear();
+        for(int i=0;i<a.size();i++)
+        {
+            world_coord.push_back(image_L.matched_3d[a[i].queryIdx]);
+            world_coord_2.push_back(image_L2.matched_3d[a[i].trainIdx]);
+
+        }
+
+        tk.RansacMotion(world_coord,world_coord_2,R,t,500,10,0.6);
+
 
         auto end=std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed_seconds = end-start;
@@ -149,8 +169,8 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         //cout<<"Debug info"<<endl;
         tk.Track(image_L2,matched);
 
-        vector<Point3f> a;
-        vector<Point3f> b;
+        vector<Point3d> a;
+        vector<Point3d> b;
 
         Mat rotation,translation;
 
@@ -215,15 +235,15 @@ void Test()
 {
     ObjectTracker a;
     Mat r,t;
-    vector<Point3f> ref;
-    ref.push_back(Point3f(12.,13.,0));
-    ref.push_back(Point3f(7.,6.,0));
-    ref.push_back(Point3f(3.,2.2,0));
+    vector<Point3d> ref;
+    ref.push_back(Point3d(12.,13.,0));
+    ref.push_back(Point3d(7.,6.,0));
+    ref.push_back(Point3d(3.,2.2,0));
 
-    vector<Point3f> tgt;
-    tgt.push_back(Point3f(0,13.,12.));
-    tgt.push_back(Point3f(0,6.,7.));
-    tgt.push_back(Point3f(0,2.2,3.));
+    vector<Point3d> tgt;
+    tgt.push_back(Point3d(0,13.,12.));
+    tgt.push_back(Point3d(0,6.,7.));
+    tgt.push_back(Point3d(0,2.2,3.));
     a.CalcMotions(tgt,ref,r,t);
     /*
     Mat camera_matrix=(Mat_<float>(3,2)<< 537.6, 0., 400,

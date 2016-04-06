@@ -33,7 +33,7 @@ class FeaturedImg
 public:
     /*
     FeaturedImg(const Mat &image,const vector<KeyPoint>& points_2d,vector<int> idx,
-                const vector<Point3f>& points_3d,const Mat& points_descrip)
+                const vector<Point3d>& points_3d,const Mat& points_descrip)
             :img(image),key_pts(points_2d),matched_idx(idx),matched_3d(points_3d),key_descrips(points_3d)
     {
 
@@ -43,9 +43,9 @@ public:
     vector<KeyPoint> key_pts;
     Mat key_descrips;
     vector<int> matched_idx;
-    vector<Point3f> matched_3d;
+    vector<Point3d> matched_3d;
     //For coordinate computing
-    Point2f top_left={0.,0.};
+    Point2d top_left={0.,0.};
 
 };
 //Math class
@@ -77,7 +77,7 @@ class PnpImg
 public:
     /*
     FeaturedImg(const Mat &image,const vector<KeyPoint>& points_2d,vector<int> idx,
-                const vector<Point3f>& points_3d,const Mat& points_descrip)
+                const vector<Point3d>& points_3d,const Mat& points_descrip)
             :img(image),key_pts(points_2d),matched_idx(idx),matched_3d(points_3d),key_descrips(points_3d)
     {
 
@@ -85,7 +85,7 @@ public:
     Mat img;
     Mat R_t;
     //For coordinate computing
-    Point2f top_left;
+    Point2d top_left;
 
 };
 
@@ -96,20 +96,20 @@ public:
     {
         camera_matrix=camera_mat.clone();
     }
-    void SolvePnP(const vector<Point2f> &image_coords,const vector<Point3f> &world_coords,
+    void SolvePnP(const vector<Point2d> &image_coords,const vector<Point3d> &world_coords,
                   Mat &R,Mat &t);
 
 
     void PnPCheck(FeaturedImg &left,Mat &R_mat, Mat &t_vec);
-    void MarkPtOnImg(Mat &img,const Point2f &img_coord);
+    void MarkPtOnImg(Mat &img,const Point2d &img_coord);
 
 private:
 
 
-    Mat camera_matrix=(Mat_<float>(3,3)<< 586.7, 0., 399.5,
+    Mat camera_matrix=(Mat_<double>(3,3)<< 586.7, 0., 399.5,
             0., 586.4,299.5,
             0., 0., 1.);
-    //Mat camera_matrix=(Mat_<float>(3,3)<< 537.6, 0., 400,
+    //Mat camera_matrix=(Mat_<double>(3,3)<< 537.6, 0., 400,
     //        0., 537.6,300,
     //        0., 0., 1.);
     vector<double> disto;
@@ -125,21 +125,21 @@ public:
     void BasicMatching(Mat &img_1, Mat &img_2, int max_points,
                        vector<KeyPoint> &key_img1,vector<KeyPoint> &key_img2,
                        Mat &descrip_1,Mat &descrip_2,vector< DMatch > &good_matches,
-                       vector<Point2f> &matched_points_1, vector<Point2f> &matched_points_2);
+                       vector<Point2d> &matched_points_1, vector<Point2d> &matched_points_2);
     void BasicMatching(FEATURE_TYPE type,Mat &img_1, Mat &img_2,
                        vector<KeyPoint> &key_img1,vector<KeyPoint> &key_img2,
                        Mat &descrip_1,Mat &descrip_2, vector< DMatch > &good_matches, Mat &matched_img);
 
 
 protected:
-    bool SliceImage(const Mat &input, Mat &output, Point2f &top_left);
+    bool SliceImage(const Mat &input, Mat &output, Point2d &top_left);
     bool DetectExtract(const Mat &img,vector<KeyPoint> &key_points,
                        Mat &descrip,FEATURE_TYPE type=ORB_FEATURE, int minHessian=800);
     bool FindGoodMatches(vector<DMatch> &raw_matches, const vector<KeyPoint> &query_pts,
                          const vector<KeyPoint> &train_pts,int num_points, vector<DMatch> &good_matches,
                          FEATURE_TYPE type=ORB_FEATURE);
     bool GetMatchCoords(vector<DMatch> &matches,vector<KeyPoint> &key1,vector<KeyPoint> &key2,
-                        vector<Point2f> &matched_pts_1,vector<Point2f> &matched_pts_2);
+                        vector<Point2d> &matched_pts_1,vector<Point2d> &matched_pts_2);
     bool RefineKp(FeaturedImg &fimg);
 
 
@@ -155,14 +155,14 @@ public:
     //ImageProcess(const Mat &color_image)
 
     bool ImageInput(const Mat &img_L, Mat &out_img_L, const Mat &img_R,Mat &out_img_R);
-    bool StereoConstruct(const vector<Point2f> &matched_points_L,const vector<Point2f> &matched_points_R,
-                         vector<Point3f> &world_points,
+    bool StereoConstruct(const vector<Point2d> &matched_points_L,const vector<Point2d> &matched_points_R,
+                         vector<Point3d> &world_points,
                          const double baseline=120.0,const double f=2.5,const double pixel_size=4.65e-3);
     bool StereoConstruct(FeaturedImg &left, const FeaturedImg &right,
-                         vector<Point2f> &image_points_L,vector<Point3f> &world_points,
+                         vector<Point2d> &image_points_L,vector<Point3d> &world_points,
                          const double baseline=120.0,const double f=2.5, const double pixel_size=4.65e-3);
-    FeaturedImg Matching(Mat &img_L, Mat &img_R, int max_points,vector<Point2f> &matched_points_1,
-                         vector<Point2f> &matched_points_2);
+    FeaturedImg Matching(Mat &img_L, Mat &img_R, int max_points,vector<Point2d> &matched_points_1,
+                         vector<Point2d> &matched_points_2);
     void FeaturesMatching(FeaturedImg &left, FeaturedImg &right,Mat &img_matches,FEATURE_TYPE type=ORB_FEATURE);
 
     void stereo_test(Mat &img1, Mat &img2);
@@ -176,10 +176,10 @@ public:
 private:
     bool DetectObject(Mat &src_img,Mat &obj_img);
     //Find Img coords in the original image
-    void OriginImgCoord(vector<Point2f> &pts_L,vector<Point2f> &pts_R);
-    Point2f corner_L;
-    Point2f corner_R;
-    Mat camera_matrix=(Mat_<float>(3,3)<< 586.7, 0., 399.5,
+    void OriginImgCoord(vector<Point2d> &pts_L,vector<Point2d> &pts_R);
+    Point2d corner_L;
+    Point2d corner_R;
+    Mat camera_matrix=(Mat_<double>(3,3)<< 586.7, 0., 399.5,
             0., 586.4,299.5,
             0., 0., 1.);
 
@@ -199,10 +199,10 @@ public:
          ObjectTracker()= default;
     void Track(FeaturedImg &target,vector<DMatch> &good_matches);
 
-    void CalcMotions(vector<Point3f> &ref,vector<Point3f> &tgt,Mat &Rot,Mat &Tran);
-    bool RansacMotion(const vector<Point3f> &priv, const vector<Point3f> &curr,Mat &Rot,Mat &Tran,
-                      int iteration=200, double err_threash=2.5);
-    double CalcRTerror(const Mat &R,const Mat &T,const vector<Point3f> &ref,const vector<Point3f> &tgt,
+    void CalcMotions(vector<Point3d> &ref,vector<Point3d> &tgt,Mat &Rot,Mat &Tran);
+    bool RansacMotion(const vector<Point3d> &priv, const vector<Point3d> &curr,Mat &Rot,Mat &Tran,
+                      int iteration=500, double err_threash=7.5,double inlier_percent=0.7);
+    double CalcRTerror(const Mat &R,const Mat &T,const vector<Point3d> &ref,const vector<Point3d> &tgt,
                        vector<double> &err);
 
 
@@ -215,7 +215,7 @@ private:
 private:
     inline double GetNormal(const Mat &p1, const Mat &p2, const Mat &p3,Mat &output);
     inline double CalcNorm(const Mat &input);
-    inline Point3f CalcCentroid(vector<Point3f> &pts);
+    inline Point3d CalcCentroid(vector<Point3d> &pts);
 
 
 
@@ -227,17 +227,17 @@ class ChessboardGTruth: protected StereoImageProcess
 public:
     void OneFrameTruth(const Mat &left, const Mat &right, Mat &R, Mat &T);
     void OneFrameTruth(const Mat &left, const Mat &right, Mat &R, Mat &T,
-                       vector<Point2f> &matched_L, vector<Point3f> &world);
+                       vector<Point2d> &matched_L, vector<Point3d> &world);
     void OneFrameTruth(const Mat &left, const Mat &right, Mat &R, Mat &T,
-                       vector<Point2f> &matched_L, vector<Point2f> &matched_R,vector<Point3f> &world);
+                       vector<Point2d> &matched_L, vector<Point2d> &matched_R,vector<Point3d> &world);
     void FramesTruth(const Mat &first ,const Mat &second, Mat &R, Mat &T);
 
 
-    bool FindCorners(const Mat &input,vector<Point2f> &corners);
+    bool FindCorners(const Mat &input,vector<Point2d> &corners);
 
 
 private:
-    bool RansacMotion(const vector<Point3f> &priv, const vector<Point3f> &curr,int iteration=100, int threash=0.3);
+    bool RansacMotion(const vector<Point3d> &priv, const vector<Point3d> &curr,int iteration=100, double threash=0.3);
 
     const Size board_size={9,6};
 
@@ -323,9 +323,9 @@ double ObjectTracker::CalcNorm(const Mat &input)
     return sqrt(a*a+b*b+c*c);
 }
 
-Point3f ObjectTracker::CalcCentroid(vector<Point3f> &pts)
+Point3d ObjectTracker::CalcCentroid(vector<Point3d> &pts)
 {
-    Point3f p;
+    Point3d p;
     for(auto item:pts)
     {
         p+=item;
