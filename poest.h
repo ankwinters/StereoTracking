@@ -201,7 +201,7 @@ public:
 
     void CalcMotions(vector<Point3d> &ref,vector<Point3d> &tgt,Mat &Rot,Mat &Tran);
     bool RansacMotion(const vector<Point3d> &priv, const vector<Point3d> &curr,Mat &Rot,Mat &Tran,
-                      int iteration=500, double err_threash=7.5,double inlier_percent=0.7);
+                      int iteration=300, double err_threash=7.5,double inlier_percent=0.7);
     double CalcRTerror(const Mat &R,const Mat &T,const vector<Point3d> &ref,const vector<Point3d> &tgt,
                        vector<double> &err);
 
@@ -304,12 +304,15 @@ double ObjectTracker::GetNormal(const Mat &p1, const Mat &p2, const Mat &p3,Mat 
     //c = ( (p2.x-p1.x)*(p3.y-p1.y)-(p2.y-p1.y)*(p3.x-p1.x) );
 
     double length=sqrt(a*a+b*b+c*c);
-    if(true)
-    {
-        output.at<double>(0,0)=a/length;
-        output.at<double>(1,0)=b/length;
-        output.at<double>(2,0)=c/length;
-    }
+    //if( ((a<0)+(b<0)+(c<0))>1 )
+    //{
+   //    a=-a;
+    //    b=-b;
+   //     c=-c;
+   // }
+    output.at<double>(0,0)=a/length;
+    output.at<double>(1,0)=b/length;
+    output.at<double>(2,0)=c/length;
     return length;
 
 }

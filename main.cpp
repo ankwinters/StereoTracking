@@ -61,7 +61,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
             gt.OneFrameTruth(imgL_2,imgR_2,R2,t2,matches_L2,matches_R2,world_coord_2);
             ObjectTracker tk;
 
-            tk.RansacMotion(world_coord,world_coord_2,R,t);
+            tk.RansacMotion(world_coord,world_coord_2,R,t,300,6,0.9);
 
             //tk.CalcMotions(a,b,R,t);
             //tk.CalcRTerror(R,t,world_coord,world_coord_2);
@@ -153,7 +153,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 
         }
 
-        tk.RansacMotion(world_coord,world_coord_2,R,t,500,10,0.6);
+        tk.RansacMotion(world_coord,world_coord_2,R,t,500,8,0.6);
 
 
         auto end=std::chrono::system_clock::now();

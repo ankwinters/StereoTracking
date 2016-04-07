@@ -369,7 +369,8 @@ bool StereoImageProcess::StereoConstruct(const vector<Point2d> &matched_points_L
         Y=pixel_size*Z*(matched_points_L[i].y-this->camera_matrix.at<double>(1,2))/f;
         X=pixel_size*Z*(matched_points_L[i].x-this->camera_matrix.at<double>(0,2))/f;
         //cout<<"X["<<i<<"]:"<<X<<endl;
-        world_points.push_back(Point3d(X,Y,Z));
+        //Cartesian coordinate system.(0,0,0) is right at perspective point
+        world_points.push_back(Point3d(-X,-Y,Z));
     }
 
     return true;
@@ -737,6 +738,11 @@ void ObjectTracker::CalcMotions(vector<Point3d> &ref, vector<Point3d> &tgt, Mat 
     //* Calc with the method brought by Horn(1987)
     int num=3;//Number of points
     assert(ref.size()==num && tgt.size()==num);
+    if(ref==tgt)
+    {
+        Rot=Mat::eye(3,3,CV_64F);
+        Tran=Mat::zeros(3,1,CV_64F);
+    }
     //Step1 : calc the centroid
     //calc the centroid of the points from previous frame & current one
     //Change points to the centroid-based coords
@@ -976,6 +982,9 @@ bool ObjectTracker::RansacMotion(const vector<Point3d> &priv, const vector<Point
     vector<int> inliers;
     double min_errors=99999999.0;
 
+
+    int max_iterations=1000000;
+
     //Start Ransac
     for(int i=0;i<iteration;i++)
     {
@@ -1024,9 +1033,16 @@ bool ObjectTracker::RansacMotion(const vector<Point3d> &priv, const vector<Point
                 min_errors=sum_err;
             }
         }
+        else if(max_inlier_rate==inlier_percent && iteration<max_iterations)
+            iteration++;
 
     }
 
+
+
+
+    if(max_inlier_rate==inlier_percent && iteration==max_iterations)
+        return false;
     //Debug info
 
     Mat_<double> R_t;
