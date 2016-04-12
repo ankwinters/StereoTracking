@@ -199,7 +199,7 @@ public:
          ObjectTracker()= default;
     void Track(FeaturedImg &target,vector<DMatch> &good_matches);
 
-    void CalcMotions(vector<Point3d> &ref,vector<Point3d> &tgt,Mat &Rot,Mat &Tran);
+    bool CalcMotions(vector<Point3d> &ref,vector<Point3d> &tgt,Mat &Rot,Mat &Tran);
     bool RansacMotion(const vector<Point3d> &priv, const vector<Point3d> &curr,Mat &Rot,Mat &Tran,
                       int iteration=300, double err_threash=7.5,double inlier_percent=0.7);
     double CalcRTerror(const Mat &R,const Mat &T,const vector<Point3d> &ref,const vector<Point3d> &tgt,
@@ -216,6 +216,7 @@ private:
     inline double GetNormal(const Mat &p1, const Mat &p2, const Mat &p3,Mat &output);
     inline double CalcNorm(const Mat &input);
     inline Point3d CalcCentroid(vector<Point3d> &pts);
+    inline bool LineCheck(vector<Point3d> &input);
 
 
 
@@ -310,6 +311,7 @@ double ObjectTracker::GetNormal(const Mat &p1, const Mat &p2, const Mat &p3,Mat 
     //    b=-b;
    //     c=-c;
    // }
+
     output.at<double>(0,0)=a/length;
     output.at<double>(1,0)=b/length;
     output.at<double>(2,0)=c/length;
@@ -337,6 +339,25 @@ Point3d ObjectTracker::CalcCentroid(vector<Point3d> &pts)
     p.y=p.y/pts.size();
     p.z=p.z/pts.size();
     return p;
+}
+
+bool ObjectTracker::LineCheck(vector<Point3d> &input)
+{
+    double limit=0.01;
+
+    //vec_12=k*vec_13,then three points form a line
+    Mat_<double> vec_12(input[1]-input[0]);
+    Mat_<double> vec_13(input[2]-input[0]);
+    double kx=vec_13.at<double>(0,0)/vec_12.at<double>(0,0);
+    double ky=vec_13.at<double>(1,0)/vec_12.at<double>(1,0);
+    double kz=vec_13.at<double>(2,0)/vec_12.at<double>(2,0);
+
+    double diffxz=kx-kz;
+    double diffxy=kx-ky;
+    //Form a line
+    return  (diffxy+diffxz<limit);
+
+
 }
 
 #endif //POEST_PNP_H

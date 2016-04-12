@@ -401,8 +401,8 @@ bool StereoImageProcess::StereoConstruct(FeaturedImg &left, const FeaturedImg &r
         Z=baseline*f/(d*pixel_size);
         Y=pixel_size*Z*(matched_points_L[i].y-this->camera_matrix.at<double>(1,2))/f;
         X=pixel_size*Z*(matched_points_L[i].x-this->camera_matrix.at<double>(0,2))/f;
-        world_points.push_back(Point3d(X,Y,Z));
-        left.matched_3d.push_back(Point3d(X,Y,Z));
+        world_points.push_back(Point3d(-X,-Y,Z));
+        left.matched_3d.push_back(Point3d(-X,-Y,Z));
     }
 
 }
@@ -733,16 +733,22 @@ bool ObjectTracker::RefineMatches(const vector<DMatch> &raw_matches, vector<DMat
 
 
 
-void ObjectTracker::CalcMotions(vector<Point3d> &ref, vector<Point3d> &tgt, Mat &Rot, Mat &Tran)
+bool ObjectTracker::CalcMotions(vector<Point3d> &ref, vector<Point3d> &tgt, Mat &Rot, Mat &Tran)
 {
     //* Calc with the method brought by Horn(1987)
     int num=3;//Number of points
-    assert(ref.size()==num && tgt.size()==num);
     if(ref==tgt)
     {
         Rot=Mat::eye(3,3,CV_64F);
         Tran=Mat::zeros(3,1,CV_64F);
+        return true;
     }
+    //Three points should not belong to the same line
+    if( !LineCheck(ref) && !LineCheck(tgt) )
+        return false;
+
+    //Cannot form a line
+
     //Step1 : calc the centroid
     //calc the centroid of the points from previous frame & current one
     //Change points to the centroid-based coords
@@ -771,7 +777,7 @@ void ObjectTracker::CalcMotions(vector<Point3d> &ref, vector<Point3d> &tgt, Mat 
     double len_Np=GetNormal(priv[0],priv[1],priv[2],Np);
     Mat Nc=Mat::zeros(3,1,CV_64F);
     double len_Nc=GetNormal(curr[0],curr[1],curr[2],Nc);
-    Mat Na=Nc.cross(Np);
+
 
     //Debug info
     // cout<<"Np:"<<Np<<endl;
@@ -780,21 +786,29 @@ void ObjectTracker::CalcMotions(vector<Point3d> &ref, vector<Point3d> &tgt, Mat 
 
     //Step3: Calc qa & qp
     //Key:Find cos_half_fi,sin_half_fi & cos_half_th,sin_half_th
-    //0<fi<Pi,
-    //For qa
+    //0<fi<Pi/2,
     double cos_fi=Nc.dot(Np);
+    // 0<fi<Pi 0<fi/2<Pi/2
+    //if(cos_fi<0)
+    //{
+    //    cos_fi=-cos_fi;
+    //    Np = -Np;
+    //}
     double cos_half_fi=sqrt((1+cos_fi)/2);
     double sin_half_fi=sqrt((1-cos_fi)/2);
+
     //Debug info
     // cout<<"cos_fi:"<<cos_fi<<endl;
     // cout<<"cos_half_fi:"<<cos_half_fi<<endl;
     // cout<<"sin_half_fi:"<<sin_half_fi<<endl;
+
+    Mat Na=Nc.cross(Np);
     Quaternion qa(cos_half_fi,
                   Na.at<double>(0,0)*sin_half_fi, Na.at<double>(1,0)*sin_half_fi, Na.at<double>(2,0)*sin_half_fi);
     Mat Ra=Mat::zeros(3,3,CV_64F);
     qa.ToRMat(Ra);
     //For qp, C&S need to be calculated first
-    //Warning!!! Tgt Points need a rotation
+    //Warning!!! Tgt Points need a rotation to stay in the same plane as Ref
     //********************************************
     for(int i=0;i<num;i++)
     {
@@ -818,8 +832,12 @@ void ObjectTracker::CalcMotions(vector<Point3d> &ref, vector<Point3d> &tgt, Mat 
     //Find cos_half_th,sin_half_th to calc qp
 
     double cos_th=C/sqrt(C*C+S*S);
+
     double cos_half_th=sqrt((1+cos_th)/2);
     double sin_half_th=sqrt((1-cos_th)/2);
+    //**Warning: it possible that th>Pi,that is to say sin_th<0 or S<0
+    if(S<0)
+        cos_half_th=-cos_half_th;
 
     //Debug info
     //cout<<"cos_th:"<<cos_th<<endl;
@@ -845,7 +863,7 @@ void ObjectTracker::CalcMotions(vector<Point3d> &ref, vector<Point3d> &tgt, Mat 
     _Pop=Mat_<double>(Pp);
     Tran=_Pop-Rot*_Poc;
     //cout<<"Relative T:"<<Tran<<endl;
-    return ;
+    return true;
 }
 
 
@@ -856,7 +874,7 @@ bool ChessboardGTruth::FindCorners(const Mat &input,  vector<Point2d> &corners)
     found=findChessboardCorners( input, board_size, cor,
                                  CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK );
 
-    //cout<<"debug info"<<endl;
+
     if(found)
     {
 
@@ -985,6 +1003,7 @@ bool ObjectTracker::RansacMotion(const vector<Point3d> &priv, const vector<Point
 
     int max_iterations=1000000;
 
+
     //Start Ransac
     for(int i=0;i<iteration;i++)
     {
@@ -1006,7 +1025,11 @@ bool ObjectTracker::RansacMotion(const vector<Point3d> &priv, const vector<Point
             tgt.push_back(curr[idx[j]]);
         }
         //Calc model
-        CalcMotions(ref,tgt,_R,_T);
+        if(!CalcMotions(ref,tgt,_R,_T))
+        {
+            iteration++;
+            continue;
+        }
         double sum_err=CalcRTerror(_R,_T,priv,curr,errors);
         //Divide the set into inliers and outliers
         for(int j=0;j<errors.size();j++)
@@ -1033,7 +1056,7 @@ bool ObjectTracker::RansacMotion(const vector<Point3d> &priv, const vector<Point
                 min_errors=sum_err;
             }
         }
-        else if(max_inlier_rate==inlier_percent && iteration<max_iterations)
+        else if(iteration-i<10 && max_inlier_rate==inlier_percent && iteration<max_iterations)
             iteration++;
 
     }
@@ -1063,3 +1086,5 @@ bool ObjectTracker::RansacMotion(const vector<Point3d> &priv, const vector<Point
     return (min_errors==99999999.0);
 
 }
+
+
