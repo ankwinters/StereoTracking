@@ -125,7 +125,8 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         //imgprocess.StereoConstruct(matches_L2, matches_R2, world_coord_2, 120.0, 2.5);
         //poseEst.SolvePnP(matches_L2, world_coord_2, R, t);
 
-        int feature_type=ORB_FEATURE;
+        int feature_type=ORB_FREAK;
+        auto start=std::chrono::system_clock::now();
 
         bool status=imgprocess.ImageInput(imgL,image_L.img,imgR,image_R.img);
         if(status==false)
@@ -146,11 +147,13 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         imgprocess.StereoConstruct(image_L2,image_R2,matches_L2,world_coord_2);
         //poseEst.SolvePnP(matches_L2,world_coord_2,R2,t2);
         //poseEst.PnPCheck(image_L2,R2,t2);
+
         cout<<"nothing."<<endl;
 
         ObjectTracker tk(image_L);
         vector<DMatch> a;
         tk.Track(image_L2,a,feature_type);
+
         world_coord.clear();
         world_coord_2.clear();
         for(int i=0;i<a.size();i++)
@@ -159,7 +162,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
             world_coord_2.push_back(image_L2.matched_3d[a[i].trainIdx]);
 
         }
-        auto start=std::chrono::system_clock::now();
+
 
         tk.RansacMotion(world_coord,world_coord_2,R,t,500,8,0.6);
 

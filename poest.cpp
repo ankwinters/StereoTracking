@@ -25,10 +25,7 @@ bool BasicImageProcess::DetectExtract( const Mat &img,vector<KeyPoint> &key_poin
         //Step1:feature detection
         orb_detector.detect(img, key_points);
         orb_detector.compute(img, key_points, descrip);
-        //Step2:compute
-        //ORB orb_extractor;
-        //orb_extractor.compute(img, key_points, descrip);
-        //FREAK freak_detector;
+
 
         //freak_detector.compute(img,key_points,descrip);
     }
@@ -38,6 +35,14 @@ bool BasicImageProcess::DetectExtract( const Mat &img,vector<KeyPoint> &key_poin
         SIFT sift_detect( minHessian );
         sift_detect.detect( img, key_points );
         sift_detect.compute(img,key_points,descrip);
+    }
+    else if(type==ORB_FREAK)
+    {
+
+        ORB orb_detector(minHessian);
+        orb_detector.detect(img, key_points);
+        FREAK descriptor;
+        descriptor.compute(img, key_points, descrip);
     }
     return true;
 }
@@ -62,6 +67,11 @@ bool BasicImageProcess::Extract(const Mat &img, vector<KeyPoint> &key_points, Ma
         SIFT sift_detect;
         sift_detect.compute(img,key_points,descrip);
 
+    }
+    else if(type==ORB_FREAK)
+    {
+        FREAK detect;
+        detect.compute(img,key_points,descrip);
     }
     return true;
 }
@@ -126,7 +136,7 @@ void BasicImageProcess::BasicMatching(FEATURE_TYPE type,Mat &img_1, Mat &img_2,
     std::vector<DMatch> matches;
 
     cout<<"img1 cols:"<<img_1.cols<<" img2:cols:"<<img_2.cols<<endl;
-    if(type==ORB_FEATURE)
+    if(type==ORB_FEATURE or type==ORB_FREAK)
     {
         matcher=new BFMatcher(NORM_HAMMING);
 
@@ -150,7 +160,7 @@ void BasicImageProcess::BasicMatching(FEATURE_TYPE type,Mat &img_1, Mat &img_2,
     drawMatches( img_1, key_img1, img_2, key_img2,
                  good_matches, matched_img, Scalar::all(-1), Scalar::all(-1),
                  vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-    //imshow( "Good Matches", matched_img);
+    imshow( "Good Matches", matched_img);
     //imwrite("../matches.jpg",matched_img );
 
 }
@@ -162,7 +172,6 @@ bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2d &top_l
 
     cvtColor(input, output, CV_BGR2GRAY);
 
-    cout<<"Any problem here?"<<endl;
     //output=input.clone();
     top_left=Point2d(0,0);
 
@@ -195,10 +204,10 @@ bool BasicImageProcess::FindGoodMatches(vector<DMatch> &raw_matches,const vector
         matches_2.push_back(train_pts[raw_matches[i].trainIdx].pt);
 
     }
-    if(type==ORB_FEATURE)
+    if(type==ORB_FEATURE or type==ORB_FREAK)
     {
 
-        int      dist = 30;
+        int      dist = 40;
         for (int i = 0; i < raw_matches.size(); i++)
         {
             double y1   = matches_1[i].y;
@@ -227,7 +236,7 @@ bool BasicImageProcess::FindGoodMatches(vector<DMatch> &raw_matches,const vector
             double y1   = matches_1[i].y;
             double y2   = matches_2[i].y;
             double diff = ((y1 - y2) < 0) ? (y2 - y1) : (y1 - y2);
-            if( diff / y1 < threshold && raw_matches[i].distance < 0.2*max_dist )
+            if( diff / y1 < threshold && raw_matches[i].distance < 0.3*max_dist )
             {
                 good_matches.push_back( raw_matches[i]);
             }
@@ -259,7 +268,7 @@ bool BasicImageProcess::GetMatchCoords(vector<DMatch> &matches, vector<KeyPoint>
 
     for (int i=0;i<num_matches;i++)
     {
-        //Tip:Queryidx refers the left input while trainIdx means the right.
+        //* Tip:Queryidx refers the left input while trainIdx means the right.
         int idx_L=matches[i].queryIdx;
         int idx_R=matches[i].trainIdx;
         matched_pts_1.push_back(key1[idx_L].pt);
@@ -267,10 +276,10 @@ bool BasicImageProcess::GetMatchCoords(vector<DMatch> &matches, vector<KeyPoint>
     }
     return true;
 }
-/*
- * StereoImageProcess class
- * Get 3D reconstruction from binocular visions
- */
+//**********************************************
+//* StereoImageProcess class
+//* Get 3D reconstruction from binocular visions
+//**********************************************
 
 
 bool StereoImageProcess::ImageInput(const Mat &img_L, Mat &out_img_L,const Mat &img_R,Mat &out_img_R)
@@ -300,7 +309,7 @@ bool StereoImageProcess::DetectObject(Mat &src_img, Mat &obj_img)
 bool StereoImageProcess::StereoConstruct(const vector<Point2d> &matched_points_L, const vector<Point2d> &matched_points_R,
                                          vector<Point3d> &world_points,const double baseline,const double f,const double pixel_size)
 {
-    //Get coords of the original image
+    //* Get coords of the original image
     size_t num_points=matched_points_L.size();
     //double pixel_size=4.65e-3;
     //Z=b*f/d
@@ -309,13 +318,13 @@ bool StereoImageProcess::StereoConstruct(const vector<Point2d> &matched_points_L
 
     for(size_t i=0;i<num_points;i++)
     {
-        //Transform them into the same world coordinate.
+        //* Transform them into the same world coordinate.
         d=matched_points_L[i].x-matched_points_R[i].x;
         Z=baseline*f/(d*pixel_size);
         Y=pixel_size*Z*(matched_points_L[i].y-this->camera_matrix.at<double>(1,2))/f;
         X=pixel_size*Z*(matched_points_L[i].x-this->camera_matrix.at<double>(0,2))/f;
         //cout<<"X["<<i<<"]:"<<X<<endl;
-        //Cartesian coordinate system.(0,0,0) is right at perspective point
+        //* Cartesian coordinate system.(0,0,0) is right at perspective point
         world_points.push_back(Point3d(-X,-Y,Z));
     }
 
@@ -451,12 +460,11 @@ FeaturedImg StereoImageProcess::Matching(Mat &img_L, Mat &img_R, int max_points,
 void ObjectTracker::Track(FeaturedImg &target,vector<DMatch> &good_matches,FEATURE_TYPE type)
 {
 
-    /*
-     * Matching key points from two frames.
-     * Key points from the referer should be refined
-     * because of the previous binocular matching.
-     */
-
+    //**********************************************
+    //* Matching key points from two frames.
+    //* Key points from the referer should be refined
+    //* Because of the previous binocular matching.
+    //******************************************
 
     vector<KeyPoint> refer_keys;
     vector<KeyPoint> target_keys;
@@ -472,13 +480,13 @@ void ObjectTracker::Track(FeaturedImg &target,vector<DMatch> &good_matches,FEATU
         target_keys.push_back(target.key_pts[idx]);
     }
 
-    DescriptorMatcher *matcher= nullptr;
 
     Extract(this->refer.img,refer_keys,this->refer.key_descrips,type);
     Extract(target.img,target_keys,target.key_descrips,type);
 
     vector< DMatch > matches;
-    if(type==ORB_FEATURE)
+    DescriptorMatcher *matcher= nullptr;
+    if(type==ORB_FEATURE or type==ORB_FREAK)
     {
         matcher=new BFMatcher(NORM_HAMMING);
 
@@ -497,9 +505,9 @@ void ObjectTracker::Track(FeaturedImg &target,vector<DMatch> &good_matches,FEATU
     //matcher.match(refer.key_descrips,target.key_descrips,matches);
 
 
-    /*
-     * Step4:Find good match
-     */
+    //*
+    //* Step4:Find good match
+    //*
     //vector< DMatch > good_matches;
     RefineMatches(matches,good_matches,type);
     Mat img_matches;
@@ -685,14 +693,38 @@ void PoseEst::MarkPtOnImg(Mat &img, const Point2d &img_coord)
 bool ObjectTracker::RefineMatches(const vector<DMatch> &raw_matches, vector<DMatch> &good_matches,
                                   FEATURE_TYPE type)
 {
-    int dist=40;
-    //Refine with hamming dist
-    for (int i=0;i<raw_matches.size();i++)
+    if(type==ORB_FEATURE or type==ORB_FREAK)
     {
-        if( raw_matches[i].distance<dist)
-            good_matches.push_back(raw_matches[i]);
+        int      dist = 40;
+        //Refine with hamming dist
+        for (int i    = 0; i < raw_matches.size(); i++)
+        {
+            if (raw_matches[i].distance < dist)
+                good_matches.push_back(raw_matches[i]);
+        }
     }
+    else
+    {
+        double max_dist = 0; double min_dist = 100;
+        //-- Quick calculation of max and min distances between keypoints
+        for( int i = 0; i<raw_matches.size(); i++ )
+        {
+            double dist = raw_matches[i].distance;
+            if( dist < min_dist ) min_dist = dist;
+            if( dist > max_dist ) max_dist = dist;
+        }
 
+        //-- Draw only "good" matches (i.e. whose distance is less than 0.6*max_dist )
+        //-- PS.- radiusMatch can also be used here.
+        for( int i = 0; i<raw_matches.size(); i++ )
+        {
+
+            if( raw_matches[i].distance < 0.3*max_dist )
+            {
+                good_matches.push_back( raw_matches[i]);
+            }
+        }
+    }
 
     return true;
 }
