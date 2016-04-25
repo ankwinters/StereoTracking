@@ -124,7 +124,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         //auto second=imgprocess.Matching(imgL_2,imgR_2,5,matches_L2,matches_R2);
         //imgprocess.StereoConstruct(matches_L2, matches_R2, world_coord_2, 120.0, 2.5);
         //poseEst.SolvePnP(matches_L2, world_coord_2, R, t);
-        auto start=std::chrono::system_clock::now();
+
         imgprocess.ImageInput(imgL,image_L.img,imgR,image_R.img);
         imgprocess.FeaturesMatching(image_L,image_R,img_matched,ORB_FEATURE);
         //imshow("img_matched",img_matched);
@@ -152,6 +152,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
             world_coord_2.push_back(image_L2.matched_3d[a[i].trainIdx]);
 
         }
+        auto start=std::chrono::system_clock::now();
 
         tk.RansacMotion(world_coord,world_coord_2,R,t,500,8,0.6);
 
