@@ -137,7 +137,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         //imshow("img_matched",img_matched);
 
         imgprocess.StereoConstruct(image_L,image_R,matches_L,world_coord);
-        //poseEst.PnPCheck(image_L,R,t);
+        poseEst.PnPCheck(image_L,R,t);
 
 
         imgprocess.ImageInput(imgL_2,image_L2.img,imgR_2,image_R2.img);
@@ -146,9 +146,9 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 
         imgprocess.StereoConstruct(image_L2,image_R2,matches_L2,world_coord_2);
         //poseEst.SolvePnP(matches_L2,world_coord_2,R2,t2);
-        //poseEst.PnPCheck(image_L2,R2,t2);
+        poseEst.PnPCheck(image_L2,R2,t2);
 
-        cout<<"nothing."<<endl;
+       
 
         ObjectTracker tk(image_L);
         vector<DMatch> a;

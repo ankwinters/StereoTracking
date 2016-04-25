@@ -247,7 +247,7 @@ public:
 
 
 private:
-    bool RansacMotion(const vector<Point3d> &priv, const vector<Point3d> &curr,int iteration=100, double threash=0.3);
+
 
     const Size board_size={9,6};
 
@@ -360,14 +360,21 @@ bool ObjectTracker::LineCheck(vector<Point3d> &input)
     //vec_12=k*vec_13,then three points form a line
     Mat_<double> vec_12(input[1]-input[0]);
     Mat_<double> vec_13(input[2]-input[0]);
+
+    //*warning: You should prevent case like a/0 from happening
     double kx=vec_13.at<double>(0,0)/vec_12.at<double>(0,0);
     double ky=vec_13.at<double>(1,0)/vec_12.at<double>(1,0);
     double kz=vec_13.at<double>(2,0)/vec_12.at<double>(2,0);
+    if(kx*0.0==0.0 && ky*0.0==0.0 && kz*0.0==0.0)
+    {
 
-    double diffxz=kx-kz;
-    double diffxy=kx-ky;
-    //Form a line
-    return  (diffxy+diffxz<limit);
+        double diffxz = kx - kz;
+        double diffxy = kx - ky;
+        //Form a line
+        return (diffxy + diffxz < limit);
+    }
+    else
+        return false;
 
 
 }

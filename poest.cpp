@@ -112,9 +112,9 @@ void BasicImageProcess::BasicMatching(Mat &img_1, Mat &img_2, int max_points,
     //drawMatches(img_2,key_imgR,img_1,key_imgL,good_matches,img_matches);
     drawMatches( img_1, key_img1, img_2, key_img2,
                  good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-                 vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-    imshow( "Good Matches", img_matches );
-    imwrite("../matches.jpg",img_matches );
+                vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+    //imshow( "Good Matches", img_matches );
+    //imwrite("../matches.jpg",img_matches );
 
 
     //Step5:Output the coordinates of matched points.
@@ -160,7 +160,7 @@ void BasicImageProcess::BasicMatching(FEATURE_TYPE type,Mat &img_1, Mat &img_2,
     drawMatches( img_1, key_img1, img_2, key_img2,
                  good_matches, matched_img, Scalar::all(-1), Scalar::all(-1),
                  vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-    imshow( "Good Matches", matched_img);
+    //imshow( "Good Matches", matched_img);
     //imwrite("../matches.jpg",matched_img );
 
 }
@@ -207,7 +207,7 @@ bool BasicImageProcess::FindGoodMatches(vector<DMatch> &raw_matches,const vector
     if(type==ORB_FEATURE or type==ORB_FREAK)
     {
 
-        int      dist = 40;
+        int      dist = 35;
         for (int i = 0; i < raw_matches.size(); i++)
         {
             double y1   = matches_1[i].y;
@@ -284,8 +284,9 @@ bool BasicImageProcess::GetMatchCoords(vector<DMatch> &matches, vector<KeyPoint>
 
 bool StereoImageProcess::ImageInput(const Mat &img_L, Mat &out_img_L,const Mat &img_R,Mat &out_img_R)
 {
-    return ( SliceImage(img_L,out_img_L,this->corner_L) &&
-             SliceImage(img_R,out_img_R,this->corner_R)  );
+     bool status=SliceImage(img_L,out_img_L,this->corner_L);
+     bool status2=SliceImage(img_R,out_img_R,this->corner_R);
+     return status&status2;
 }
 
 void StereoImageProcess::PrintCorners()
@@ -635,7 +636,7 @@ void PoseEst::PnPCheck(FeaturedImg &left,Mat &R_mat, Mat &t_vec)
 
 
 
-
+/*
 
         //print Matrix
         auto mat_print=[](Mat &a){
@@ -679,7 +680,7 @@ void PoseEst::PnPCheck(FeaturedImg &left,Mat &R_mat, Mat &t_vec)
 
 
         cout<<"Camera matrix:"<<this->camera_matrix<<endl;
-
+*/
     }
 
 }
@@ -861,6 +862,10 @@ bool ObjectTracker::CalcMotions(vector<Point3d> &ref, vector<Point3d> &tgt, Mat 
     _Pop=Mat_<double>(Pp);
     Tran=_Pop-Rot*_Poc;
     //cout<<"Relative T:"<<Tran<<endl;
+    //* Last check
+    if(Rot.at<double>(0,0)*0.0!=0.0)
+        return false;
+
     return true;
 }
 
@@ -979,7 +984,7 @@ double ObjectTracker::CalcRTerror(const Mat &R, const Mat &T,const vector<Point3
         err.push_back(errori);
         error+=errori;
     }
-    cout<<"errors:"<<error<<endl;
+    //cout<<"errors:"<<error<<endl;
     return error;
 
 }
@@ -1041,7 +1046,7 @@ bool ObjectTracker::RansacMotion(const vector<Point3d> &priv, const vector<Point
 
         //**warning:must cast following types into double
         double rate=(double)inliers.size()/(double)curr.size();
-        cout<<"Current ["<<i<<"] rate:"<<rate<<endl;
+        //cout<<"Current ["<<i<<"] rate:"<<rate<<endl;
         if(rate>=max_inlier_rate)
         {
             //Good fit
