@@ -125,8 +125,14 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         //imgprocess.StereoConstruct(matches_L2, matches_R2, world_coord_2, 120.0, 2.5);
         //poseEst.SolvePnP(matches_L2, world_coord_2, R, t);
 
-        imgprocess.ImageInput(imgL,image_L.img,imgR,image_R.img);
-        imgprocess.FeaturesMatching(image_L,image_R,img_matched,ORB_FEATURE);
+        int feature_type=ORB_FEATURE;
+
+        bool status=imgprocess.ImageInput(imgL,image_L.img,imgR,image_R.img);
+        if(status==false)
+        {
+            imgprocess.ImageInput(imgL, image_L.img, imgR, image_R.img);
+        }
+        imgprocess.FeaturesMatching(image_L,image_R,img_matched,feature_type);
         //imshow("img_matched",img_matched);
 
         imgprocess.StereoConstruct(image_L,image_R,matches_L,world_coord);
@@ -134,16 +140,17 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 
 
         imgprocess.ImageInput(imgL_2,image_L2.img,imgR_2,image_R2.img);
-        imgprocess.FeaturesMatching(image_L2,image_R2,img_matched,ORB_FEATURE);
+        imgprocess.FeaturesMatching(image_L2,image_R2,img_matched,feature_type);
         //imshow("img_matched",img_matched);
 
         imgprocess.StereoConstruct(image_L2,image_R2,matches_L2,world_coord_2);
         //poseEst.SolvePnP(matches_L2,world_coord_2,R2,t2);
         //poseEst.PnPCheck(image_L2,R2,t2);
+        cout<<"nothing."<<endl;
 
         ObjectTracker tk(image_L);
         vector<DMatch> a;
-        tk.Track(image_L2,a);
+        tk.Track(image_L2,a,feature_type);
         world_coord.clear();
         world_coord_2.clear();
         for(int i=0;i<a.size();i++)

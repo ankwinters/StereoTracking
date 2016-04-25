@@ -21,6 +21,7 @@ using namespace std;
 typedef int FEATURE_TYPE;
 #define SIFT_FEATURE 0
 #define ORB_FEATURE 1
+#define ORB_FREAK 2
 
 
 //Mat camera_mat=(Mat_<double>(3,3)<< 586.7, 0., 399.5,
@@ -133,14 +134,22 @@ public:
 
 protected:
     bool SliceImage(const Mat &input, Mat &output, Point2d &top_left);
-    bool DetectExtract(const Mat &img,vector<KeyPoint> &key_points,
-                       Mat &descrip,FEATURE_TYPE type=ORB_FEATURE, int minHessian=800);
+
     bool FindGoodMatches(vector<DMatch> &raw_matches, const vector<KeyPoint> &query_pts,
                          const vector<KeyPoint> &train_pts,int num_points, vector<DMatch> &good_matches,
                          FEATURE_TYPE type=ORB_FEATURE);
     bool GetMatchCoords(vector<DMatch> &matches,vector<KeyPoint> &key1,vector<KeyPoint> &key2,
                         vector<Point2d> &matched_pts_1,vector<Point2d> &matched_pts_2);
     bool RefineKp(FeaturedImg &fimg);
+
+protected:
+    bool DetectExtract(const Mat &img,vector<KeyPoint> &key_points,
+                       Mat &descrip,FEATURE_TYPE type=ORB_FEATURE, int minHessian=800);
+
+    bool Extract(const Mat &img, vector<KeyPoint> &key_points, Mat &descrip,
+                 FEATURE_TYPE type=ORB_FEATURE);
+
+
 
 
 
@@ -197,7 +206,7 @@ class ObjectTracker:public BasicImageProcess
 public:
     ObjectTracker(const FeaturedImg &fiducial):refer(fiducial){ }
          ObjectTracker()= default;
-    void Track(FeaturedImg &target,vector<DMatch> &good_matches);
+    void Track(FeaturedImg &target,vector<DMatch> &good_matches,FEATURE_TYPE type=ORB_FEATURE);
 
     bool CalcMotions(vector<Point3d> &ref,vector<Point3d> &tgt,Mat &Rot,Mat &Tran);
     bool RansacMotion(const vector<Point3d> &priv, const vector<Point3d> &curr,Mat &Rot,Mat &Tran,
@@ -251,6 +260,9 @@ private:
 /*
  * inline functions
  */
+
+
+
 void Quaternion::ToRMatrix(Mat &R)
 {
 

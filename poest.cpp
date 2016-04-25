@@ -20,24 +20,52 @@ bool BasicImageProcess::DetectExtract( const Mat &img,vector<KeyPoint> &key_poin
 {
     if(type==ORB_FEATURE)
     {
-        OrbFeatureDetector orb_detector(minHessian);
+
+        ORB orb_detector(minHessian);
         //Step1:feature detection
         orb_detector.detect(img, key_points);
+        orb_detector.compute(img, key_points, descrip);
         //Step2:compute
-        OrbDescriptorExtractor orb_extractor;
-        orb_extractor.compute(img, key_points, descrip);
+        //ORB orb_extractor;
+        //orb_extractor.compute(img, key_points, descrip);
+        //FREAK freak_detector;
+
+        //freak_detector.compute(img,key_points,descrip);
     }
     else if(type==SIFT_FEATURE)
     {
 
-        SiftFeatureDetector sift_detect( minHessian );
-
+        SIFT sift_detect( minHessian );
         sift_detect.detect( img, key_points );
-        SiftDescriptorExtractor sift_extractor;
-        sift_extractor.compute(img,key_points,descrip);
+        sift_detect.compute(img,key_points,descrip);
     }
     return true;
 }
+
+
+//***************
+//* Only extract
+//***************
+bool BasicImageProcess::Extract(const Mat &img, vector<KeyPoint> &key_points, Mat &descrip,
+                                FEATURE_TYPE type)
+{
+    if(type==ORB_FEATURE)
+    {
+
+        ORB orb_detector;
+        orb_detector.compute(img, key_points, descrip);
+
+    }
+    else if(type==SIFT_FEATURE)
+    {
+
+        SIFT sift_detect;
+        sift_detect.compute(img,key_points,descrip);
+
+    }
+    return true;
+}
+
 void BasicImageProcess::BasicMatching(Mat &img_1, Mat &img_2, int max_points,
                                       vector<KeyPoint> &key_img1,vector<KeyPoint> &key_img2,
                                       Mat &descrip_1,Mat &descrip_2, vector< DMatch > &good_matches,
@@ -70,7 +98,6 @@ void BasicImageProcess::BasicMatching(Mat &img_1, Mat &img_2, int max_points,
     */
 
 
-
     Mat img_matches;
     //drawMatches(img_2,key_imgR,img_1,key_imgL,good_matches,img_matches);
     drawMatches( img_1, key_img1, img_2, key_img2,
@@ -90,26 +117,30 @@ void BasicImageProcess::BasicMatching(FEATURE_TYPE type,Mat &img_1, Mat &img_2,
                                       vector<KeyPoint> &key_img1, vector<KeyPoint> &key_img2, Mat &descrip_1, Mat &descrip_2,
                                       vector<DMatch> &good_matches, Mat &matched_img)
 {
+    cout<<"Debug info!!!!!!!!"<<endl;
+    DescriptorMatcher *matcher= nullptr;
     DetectExtract(img_1, key_img1, descrip_1,type);
     DetectExtract(img_2, key_img2, descrip_2,type);
     //Step3:matching
-
     //cout<<"Debug info!!!!!!!!"<<endl;
     std::vector<DMatch> matches;
 
-    if(type==SIFT_FEATURE)
+    cout<<"img1 cols:"<<img_1.cols<<" img2:cols:"<<img_2.cols<<endl;
+    if(type==ORB_FEATURE)
     {
-        //Ptr<flann::IndexParams> indexParams = new flann::LshIndexParams();
-        FlannBasedMatcher       matcher;
-        matcher.match(descrip_1,descrip_2,matches);
-    }
-    else if(type==ORB_FEATURE)
-    {
-        BFMatcher           matcher(NORM_HAMMING);
-        matcher.match(descrip_1,descrip_2,matches);
-    }
+        matcher=new BFMatcher(NORM_HAMMING);
 
-    //matcher.match(descrip_1,descrip_2,matches);
+    }
+    else if(type==SIFT_FEATURE)
+    {
+        matcher=new FlannBasedMatcher;
+
+    }
+    else
+       exit(-1);
+    matcher->match(descrip_1, descrip_2, matches);
+    delete matcher;
+
 
     // TB improved
     //  Step4:Find good match
@@ -128,95 +159,10 @@ void BasicImageProcess::BasicMatching(FEATURE_TYPE type,Mat &img_1, Mat &img_2,
 
 bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2d &top_left)
 {
-    /*
 
-    Mat gray;
-
-
-    //vector<Mat> channels;
-    //split(input_copy,channels);
-    //Mat green=channels.at(1);
-    //cout<<"Mat :"<<green<<endl;
-    //imshow("green",green);
-    //exit(-1);
-
-
-
-    cvtColor(input, gray, CV_BGR2GRAY);
-    Mat input_copy=gray.clone();
-    //Temporarily set threshold to 40
-    //To be modified by some advanced method
-    //equalizeHist( gray, gray );
-    //imshow("gray",gray);
-    //imwrite( "../Gray_His.jpg", gray );
-
-    threshold(gray, gray,40, 255,THRESH_BINARY+THRESH_OTSU); //Threshold the gray
-    //Make black to white and vice versa
-    //bitwise_not(gray,gray);
-    //imshow("gray",gray);
-    //imwrite( "../Gray_Image.jpg", gray );
-    imshow("gray",gray);
-
-    vector<vector<cv::Point> > contours;
-
-    findContours( gray, contours, CV_RETR_LIST, CV_CHAIN_APPROX_NONE );
-
-    // iterate through each contour.
-    int largest_contour_index=0;
-    double largest_area=0;
-    Rect bounding_rect;
-    Point2d tl;
-    Point2d br;
-
-    for( int i = 0; i< contours.size(); i++ )
-    {
-        //  Calc the area of contour
-
-        double a=contourArea( contours[i],false);
-        if(a>largest_area){
-            largest_area=a;
-            // Store the index of largest contour
-            largest_contour_index=i;
-            // Find the bounding rectangle for biggest contour
-            bounding_rect=boundingRect(contours[i]);
-            //top_left=bounding_rect.tl();
-            tl=bounding_rect.tl();
-            br=bounding_rect.br();
-        }
-    }
-    //do some change
-
-    const int size=20;
-    double x=0;
-    double y=0;
-
-    (tl.x-size>0)?(x=tl.x-size):(x=tl.x);
-    (tl.y-size>0)?(y=tl.y-size):(y=tl.y);
-
-    top_left=Point2d(x,y);
-
-    (br.x+size<input.cols)?(x=br.x+size):(x=br.x);
-    (br.y+size<input.rows)?(y=br.y+size):(y=br.y);
-
-    bounding_rect=Rect(top_left,Point2d(x,y));
-
-*/
-
-/*
-    drawContours( input, contours,largest_contour_index, Scalar( 255,255,255));
-    rectangle(input, bounding_rect,  Scalar(0,255,0),2, 8,0);
-    namedWindow( "Display window", CV_WINDOW_AUTOSIZE );
-    imshow( "Display window", input );
-*/
-    //drawContours( input, contours,largest_contour_index, Scalar( 255,255,255));
-    //input_copy=input.clone();
-    //Implement Sharpening Filter
-    //Mat kernel = (Mat_<double>(3,3) << 0,-1,0,-1,5,-1,0,-1,0);
-    //filter2D(input_copy,input_copy,input.depth(),kernel);
-
-
-    //output=input_copy(bounding_rect);
     cvtColor(input, output, CV_BGR2GRAY);
+
+    cout<<"Any problem here?"<<endl;
     //output=input.clone();
     top_left=Point2d(0,0);
 
@@ -502,7 +448,7 @@ FeaturedImg StereoImageProcess::Matching(Mat &img_L, Mat &img_R, int max_points,
 
 }
 
-void ObjectTracker::Track(FeaturedImg &target,vector<DMatch> &good_matches)
+void ObjectTracker::Track(FeaturedImg &target,vector<DMatch> &good_matches,FEATURE_TYPE type)
 {
 
     /*
@@ -526,25 +472,36 @@ void ObjectTracker::Track(FeaturedImg &target,vector<DMatch> &good_matches)
         target_keys.push_back(target.key_pts[idx]);
     }
 
+    DescriptorMatcher *matcher= nullptr;
 
+    Extract(this->refer.img,refer_keys,this->refer.key_descrips,type);
+    Extract(target.img,target_keys,target.key_descrips,type);
 
-    OrbDescriptorExtractor orb_extractor;
-    orb_extractor.compute(this->refer.img, refer_keys, this->refer.key_descrips);
-    orb_extractor.compute(target.img, target_keys, target.key_descrips);
-
-    BFMatcher matcher(NORM_HAMMING);
     vector< DMatch > matches;
+    if(type==ORB_FEATURE)
+    {
+        matcher=new BFMatcher(NORM_HAMMING);
 
+    }
+    else if(type==SIFT_FEATURE)
+    {
+        matcher=new FlannBasedMatcher;
 
+    }
+    else
+        exit(-1);
 
-    matcher.match(refer.key_descrips,target.key_descrips,matches);
+    matcher->match(refer.key_descrips,target.key_descrips,matches);
+    delete matcher;
+
+    //matcher.match(refer.key_descrips,target.key_descrips,matches);
 
 
     /*
      * Step4:Find good match
      */
     //vector< DMatch > good_matches;
-    RefineMatches(matches,good_matches);
+    RefineMatches(matches,good_matches,type);
     Mat img_matches;
     //drawMatches(img_2,key_imgR,img_1,key_imgL,good_matches,img_matches);
     drawMatches( refer.img, refer_keys, target.img, target_keys,
@@ -643,17 +600,26 @@ void PoseEst::PnPCheck(FeaturedImg &left,Mat &R_mat, Mat &t_vec)
         //cout<<"solvePnP ITER time:"<<elapsed_seconds.count()<<endl;
         //cout<<"debug info"<<endl;
 
-        for(int i=0,idx=0,erased=0;i<inliers.size();i++,idx++)
+        for(int i=0,idx=0;i<inliers.size();i++,idx++)
         {
 
             while(idx<inliers[i])
             {
-                left.matched_idx.erase(left.matched_idx.begin()+idx-erased);
-                left.matched_3d.erase(left.matched_3d.begin()+idx-erased);
-                //optional
-                image_coords.erase(image_coords.begin()+idx-erased);
-                erased++;
+                left.matched_idx[idx]=left.matched_idx.back();
+                left.matched_3d[idx]=left.matched_3d.back();
+                image_coords[idx]=image_coords.back();
+
+                left.matched_3d.pop_back();
+                left.matched_idx.pop_back();
+                image_coords.pop_back();
                 idx++;
+
+                //left.matched_idx.erase(left.matched_idx.begin()+idx-erased);
+                //left.matched_3d.erase(left.matched_3d.begin()+idx-erased);
+                //optional
+                //image_coords.erase(image_coords.begin()+idx-erased);
+                //erased++;
+                //idx++;
             }
 
         }
@@ -1086,5 +1052,6 @@ bool ObjectTracker::RansacMotion(const vector<Point3d> &priv, const vector<Point
     return (min_errors==99999999.0);
 
 }
+
 
 
