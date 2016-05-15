@@ -41,6 +41,7 @@ bool BasicImageProcess::DetectExtract( const Mat &img,vector<KeyPoint> &key_poin
 
         ORB orb_detector(minHessian);
         orb_detector.detect(img, key_points);
+
         FREAK descriptor;
         descriptor.compute(img, key_points, descrip);
     }
@@ -207,7 +208,7 @@ bool BasicImageProcess::FindGoodMatches(vector<DMatch> &raw_matches,const vector
     if(type==ORB_FEATURE or type==ORB_FREAK)
     {
 
-        int      dist = 35;
+        int      dist = 30;
         for (int i = 0; i < raw_matches.size(); i++)
         {
             double y1   = matches_1[i].y;
@@ -602,7 +603,10 @@ void PoseEst::PnPCheck(FeaturedImg &left,Mat &R_mat, Mat &t_vec)
         Mat R_Rod;
         vector<int> inliers;
 
-        solvePnPRansac(left.matched_3d, image_coords, this->camera_matrix, this->disto, R_Rod, t_vec,false,500,3.0,0.99,inliers);
+        solvePnPRansac(left.matched_3d, image_coords, this->camera_matrix, this->disto,
+                       R_Rod, t_vec,false,100,2.5,0.99,inliers);
+        //solvePnPRansac(left.matched_3d, image_coords, this->camera_matrix, this->disto,
+        //               R_Rod, t_vec,false,500,3.0,0.99,inliers,CV_EPNP);
         //end=std::chrono::system_clock::now();
         //std::chrono::duration<double> elapsed_seconds = end-start;
         Rodrigues(R_Rod,R_mat);
@@ -632,8 +636,6 @@ void PoseEst::PnPCheck(FeaturedImg &left,Mat &R_mat, Mat &t_vec)
             }
 
         }
-
-
 
 
 /*
@@ -676,9 +678,6 @@ void PoseEst::PnPCheck(FeaturedImg &left,Mat &R_mat, Mat &t_vec)
 
         };
         cout<<"Reprojection error:"<<repro_error(left.matched_3d)<<endl;
-
-
-
         cout<<"Camera matrix:"<<this->camera_matrix<<endl;
 */
     }
@@ -696,7 +695,7 @@ bool ObjectTracker::RefineMatches(const vector<DMatch> &raw_matches, vector<DMat
 {
     if(type==ORB_FEATURE or type==ORB_FREAK)
     {
-        int      dist = 40;
+        int      dist = 30;
         //Refine with hamming dist
         for (int i    = 0; i < raw_matches.size(); i++)
         {
@@ -743,7 +742,7 @@ bool ObjectTracker::CalcMotions(vector<Point3d> &ref, vector<Point3d> &tgt, Mat 
         return true;
     }
     //Three points should not belong to the same line
-    if( !LineCheck(ref) && !LineCheck(tgt) )
+    if( !LineCheck(ref) or !LineCheck(tgt) )
         return false;
 
     //Cannot form a line
@@ -870,6 +869,142 @@ bool ObjectTracker::CalcMotions(vector<Point3d> &ref, vector<Point3d> &tgt, Mat 
 }
 
 
+
+
+double ObjectTracker::CalcRTerror(const Mat &R, const Mat &T,const vector<Point3d> &ref,const vector<Point3d> &tgt,
+                                  vector<double> &err)
+{
+    assert(ref.size()==tgt.size());
+
+    double error=0;
+    err.clear();
+
+    for(int i=0;i<tgt.size();i++)
+    {
+        //cout<<"debug info"<<endl;
+        Mat RT_tgt=Mat::zeros(3,1,CV_64F);
+        RT_tgt=R*Mat_<double>(tgt[i])+T;
+        Mat RT_ref=Mat::zeros(3,1,CV_64F);
+        RT_ref=Mat_<double>(ref[i]);
+        /*
+        double x=RT_ref.at<double>(0,0)-RT_tgt.at<double>(0,0);
+        double y=RT_ref.at<double>(1,0)-RT_tgt.at<double>(1,0);
+        double z=RT_ref.at<double>(2,0)-RT_tgt.at<double>(2,0);
+        double errori=x*x+y*y+z*z;
+         */
+        double errori = norm(RT_ref, RT_tgt, CV_L2);
+
+        //cout<<"Matched ["<<i<<"] error:"<<errori<<endl;
+        err.push_back(errori);
+        error+=errori;
+    }
+    //cout<<"errors:"<<error<<endl;
+    return error;
+
+}
+
+double ObjectTracker::CalcModelError(const Mat &R, const Mat &T, const Point3d &ref, const Point3d &tgt)
+{
+    Mat RT_tgt=Mat::zeros(3,1,CV_64F);
+    RT_tgt=R*Mat_<double>(tgt)+T;
+    Mat RT_ref=Mat::zeros(3,1,CV_64F);
+    RT_ref=Mat_<double>(ref);
+    return norm(RT_ref, RT_tgt, CV_L2);
+
+}
+
+bool ObjectTracker::RansacMotion(const vector<Point3d> &priv, const vector<Point3d> &curr, Mat &Rot, Mat &Tran,
+                                 int iteration, double err_threash,double inlier_percent)
+{
+    assert(priv.size()==curr.size());
+    RNG _random((unsigned)time(NULL));
+
+    vector<double> errors;
+    double max_inlier_rate=inlier_percent;
+    //Maybe unnecessary
+    int inliers;
+    double min_errors=99999999.0;
+    int max_iterations=1000000;
+
+    //*Debug
+    //vector<Point3d> best_ref;
+    //vector<Point3d> best_tgt;
+
+    //Start Ransac
+    for(int i=0;i<iteration;i++)
+    {
+        Mat _R,_T;
+        //choose 3 random items from the whole set
+        errors.clear();
+        inliers=0;
+        int idx[3]={0,0,0};
+        while(idx[0]==idx[1] || idx[1]==idx[2] || idx[2]==idx[0])
+        {
+            idx[0] = _random.next() % (int) priv.size();
+            idx[1] = _random.next() % (int) priv.size();
+            idx[2] = _random.next() % (int) priv.size();
+        }
+        vector<Point3d> ref;
+        vector<Point3d> tgt;
+        for(int j=0;j<3;j++)
+        {
+            ref.push_back(priv[idx[j]]);
+            tgt.push_back(curr[idx[j]]);
+        }
+        //Calc model
+        if(!CalcMotions(ref,tgt,_R,_T))
+        {
+            iteration++;
+            continue;
+        }
+        CalcRTerror(_R,_T,priv,curr,errors);
+        double sum_err=0;
+        //Divide the set into inliers and outliers
+        for(int j=0;j<errors.size();j++)
+        {
+            if(errors[j]<err_threash)
+            {
+                inliers++;
+                sum_err+=errors[j];
+            }
+        }
+        //Check if the model is well fit
+
+        //**warning:must cast following types into double
+        double rate=(double)inliers/(double)curr.size();
+        //cout<<"Current ["<<i<<"] rate:"<<rate<<endl;
+        if(rate>=max_inlier_rate)
+        {
+            //Good fit
+            //Maybe all inliers
+            if(sum_err<min_errors)
+            {
+                Rot             = _R;
+                Tran            = _T;
+                max_inlier_rate = rate;
+                min_errors=sum_err;
+                //***************************Debug
+                //best_ref=ref;
+                //best_tgt=tgt;
+            }
+        }
+        else if(iteration-i<10 && max_inlier_rate==inlier_percent && iteration<max_iterations)
+            iteration++;
+
+    }
+
+
+    if(max_inlier_rate==inlier_percent && iteration==max_iterations)
+        return false;
+    cout<<"inliers rate:"<<max_inlier_rate<<" Best errors:"<<min_errors<<endl;
+
+
+    return (min_errors==99999999.0);
+
+}
+
+
+
 bool ChessboardGTruth::FindCorners(const Mat &input,  vector<Point2d> &corners)
 {
     bool found;
@@ -942,7 +1077,7 @@ void ChessboardGTruth::OneFrameTruth(const Mat &left, const Mat &right, Mat &R, 
     //FindCorners(right,matched_R);
 
     if( (FindCorners(left,matched_L)) &&
-                (FindCorners(right,matched_R)) )
+        (FindCorners(right,matched_R)) )
     {
         StereoConstruct(matched_L,matched_R,world);
         PoseEst poest;
@@ -950,145 +1085,10 @@ void ChessboardGTruth::OneFrameTruth(const Mat &left, const Mat &right, Mat &R, 
         //cout<<"Debug info..."<<endl;
         return;
     }
-   // exit(-1);
+    // exit(-1);
 }
 
 void ChessboardGTruth::FramesTruth(const Mat &first, const Mat &second, Mat &R, Mat &T)
 {
 
 }
-
-double ObjectTracker::CalcRTerror(const Mat &R, const Mat &T,const vector<Point3d> &ref,const vector<Point3d> &tgt,
-                                  vector<double> &err)
-{
-    assert(ref.size()==tgt.size());
-
-    double error=0;
-
-    for(int i=0;i<tgt.size();i++)
-    {
-        //cout<<"debug info"<<endl;
-        Mat RT_tgt=Mat::zeros(3,1,CV_64F);
-        RT_tgt=R*Mat_<double>(tgt[i])+T;
-        Mat RT_ref=Mat::zeros(3,1,CV_64F);
-        RT_ref=Mat_<double>(ref[i]);
-        /*
-        double x=RT_ref.at<double>(0,0)-RT_tgt.at<double>(0,0);
-        double y=RT_ref.at<double>(1,0)-RT_tgt.at<double>(1,0);
-        double z=RT_ref.at<double>(2,0)-RT_tgt.at<double>(2,0);
-        double errori=x*x+y*y+z*z;
-         */
-        double errori = norm(RT_ref, RT_tgt, CV_L2);
-
-        //cout<<"Matched ["<<i<<"] error:"<<errori<<endl;
-        err.push_back(errori);
-        error+=errori;
-    }
-    //cout<<"errors:"<<error<<endl;
-    return error;
-
-}
-
-bool ObjectTracker::RansacMotion(const vector<Point3d> &priv, const vector<Point3d> &curr, Mat &Rot, Mat &Tran,
-                                 int iteration, double err_threash,double inlier_percent)
-{
-    assert(priv.size()==curr.size());
-    RNG _random((unsigned)time(NULL));
-
-    Mat _R,_T;
-
-    vector<double> errors;
-    double max_inlier_rate=inlier_percent;
-    //Maybe unnecessary
-    vector<int> inliers;
-    double min_errors=99999999.0;
-
-
-    int max_iterations=1000000;
-
-
-    //Start Ransac
-    for(int i=0;i<iteration;i++)
-    {
-        //choose 3 random items from the whole set
-        errors.clear();
-        inliers.clear();
-        int idx[3]={0,0,0};
-        while(idx[0]==idx[1] || idx[1]==idx[2] || idx[2]==idx[0])
-        {
-            idx[0] = _random.next() % (int) priv.size();
-            idx[1] = _random.next() % (int) priv.size();
-            idx[2] = _random.next() % (int) priv.size();
-        }
-        vector<Point3d> ref;
-        vector<Point3d> tgt;
-        for(int j=0;j<3;j++)
-        {
-            ref.push_back(priv[idx[j]]);
-            tgt.push_back(curr[idx[j]]);
-        }
-        //Calc model
-        if(!CalcMotions(ref,tgt,_R,_T))
-        {
-            iteration++;
-            continue;
-        }
-        double sum_err=CalcRTerror(_R,_T,priv,curr,errors);
-        //Divide the set into inliers and outliers
-        for(int j=0;j<errors.size();j++)
-        {
-            if(errors[j]<err_threash)
-            {
-                inliers.push_back(j);
-            }
-        }
-        //Check if the model is well fit
-
-        //**warning:must cast following types into double
-        double rate=(double)inliers.size()/(double)curr.size();
-        //cout<<"Current ["<<i<<"] rate:"<<rate<<endl;
-        if(rate>=max_inlier_rate)
-        {
-            //Good fit
-            //Maybe all inliers
-            if(sum_err<min_errors)
-            {
-                Rot             = _R;
-                Tran            = _T;
-                max_inlier_rate = rate;
-                min_errors=sum_err;
-            }
-        }
-        else if(iteration-i<10 && max_inlier_rate==inlier_percent && iteration<max_iterations)
-            iteration++;
-
-    }
-
-
-
-
-    if(max_inlier_rate==inlier_percent && iteration==max_iterations)
-        return false;
-    //Debug info
-
-    Mat_<double> R_t;
-    hconcat(Rot,Tran,R_t);
-    auto mat_print=[](Mat &a){
-        //cout<<"[";
-        for(int i=0; i<a.rows; i++)
-        {
-            for (int j = 0; j < a.cols; j++)
-                cout << fixed<<setprecision(4) << a.at<double>(i, j) << ",";
-            cout<<endl;
-        }
-    };
-
-
-    cout<<"inliers rate:"<<max_inlier_rate<<" Best errors:"<<min_errors<<" Best R|t:"<<endl;
-    mat_print(R_t);
-    return (min_errors==99999999.0);
-
-}
-
-
-

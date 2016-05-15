@@ -6,7 +6,7 @@
 #define POEST_PNP_H
 
 #include <ctime>
-
+#include <iostream>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
@@ -213,6 +213,7 @@ public:
                       int iteration=300, double err_threash=7.5,double inlier_percent=0.7);
     double CalcRTerror(const Mat &R,const Mat &T,const vector<Point3d> &ref,const vector<Point3d> &tgt,
                        vector<double> &err);
+    double CalcModelError(const Mat &R,const Mat &T,const Point3d &ref,const Point3d &tgt);
 
 
 private:
@@ -355,11 +356,35 @@ Point3d ObjectTracker::CalcCentroid(vector<Point3d> &pts)
 
 bool ObjectTracker::LineCheck(vector<Point3d> &input)
 {
+    // * Return Value
+    // * true means the points cannot form a line
+    // * false means they form a line
     double limit=0.01;
 
     //vec_12=k*vec_13,then three points form a line
     Mat_<double> vec_12(input[1]-input[0]);
     Mat_<double> vec_13(input[2]-input[0]);
+    Mat_<double> vec_23(input[2]-input[1]);
+    //* Check if there exists two points that overlap.
+
+    auto OverlapCheck=[](Mat &diff){
+        //* Must be more than thresh=5 px
+        double thresh=5.0;
+        double a=diff.at<double>(0,0);
+        double b=diff.at<double>(1,0);
+        double c=diff.at<double>(2,0);
+        //* Only 1 component is same
+        return ((a<thresh and a>-thresh)+(b<thresh and b>-thresh)+(c<thresh and c>-thresh))>1;
+    };
+    if(OverlapCheck(vec_12) or OverlapCheck(vec_13) or OverlapCheck(vec_23))
+        return false;
+
+
+    //std::cout<<"Seems points OK:";
+    //for(auto item:input)
+    //    std::cout<<item<<"  ";
+    //std::cout<<endl;
+
 
     //*warning: You should prevent case like a/0 from happening
     double kx=vec_13.at<double>(0,0)/vec_12.at<double>(0,0);

@@ -2,6 +2,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <chrono>
 
@@ -128,6 +129,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         int feature_type=ORB_FREAK;
         auto start=std::chrono::system_clock::now();
 
+
         bool status=imgprocess.ImageInput(imgL,image_L.img,imgR,image_R.img);
         if(status==false)
         {
@@ -148,7 +150,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         //poseEst.SolvePnP(matches_L2,world_coord_2,R2,t2);
         poseEst.PnPCheck(image_L2,R2,t2);
 
-       
+
 
         ObjectTracker tk(image_L);
         vector<DMatch> a;
@@ -164,11 +166,28 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         }
 
 
-        tk.RansacMotion(world_coord,world_coord_2,R,t,500,8,0.6);
+        tk.RansacMotion(world_coord,world_coord_2,R,t,200,8,0.6);
 
 
         auto end=std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed_seconds = end-start;
+        //Debug info
+
+        Mat_<double> R_t;
+        hconcat(R,t,R_t);
+        auto mat_print=[](Mat &a){
+            //cout<<"[";
+            for(int i=0; i<a.rows; i++)
+            {
+                for (int j = 0; j < a.cols; j++)
+                    cout << fixed<<setprecision(4) << a.at<double>(i, j) << ",";
+                cout<<endl;
+            }
+        };
+
+
+        cout<<" Best R|t:"<<endl;
+        mat_print(R_t);
         cout<<"Pose estimation time:"<<elapsed_seconds.count()<<endl;
 
 
@@ -208,7 +227,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
          */
 
         fstream file;
-        file.open("points.txt", std::fstream::in | std::fstream::out | std::fstream::app);
+        file.open("points.txt", std::fstream::in | std::fstream::out | std::fstream::trunc);
         file << "matched_points of the second left image:" << endl;
         for (auto i:matches_L2)
             file << i << " ";
@@ -247,15 +266,28 @@ void Test()
     ObjectTracker a;
     Mat r,t;
     vector<Point3d> ref;
-    ref.push_back(Point3d(12.,13.,0));
-    ref.push_back(Point3d(7.,6.,0));
-    ref.push_back(Point3d(3.,2.2,0));
+    ref.push_back(Point3d(8.1196, -13.7607, 459.5165));
+    ref.push_back(Point3d(-23.4191, 27.1433, 460.9348));
+    ref.push_back(Point3d(79.5689, -7.6724, 463.4779));
 
     vector<Point3d> tgt;
-    tgt.push_back(Point3d(0,13.,12.));
-    tgt.push_back(Point3d(0,6.,7.));
-    tgt.push_back(Point3d(0,2.2,3.));
-    a.CalcMotions(tgt,ref,r,t);
+    tgt.push_back(Point3d(-60.0862, -14.9138, 463.4779));
+    tgt.push_back(Point3d(-92.7118, 25.9826, 466.6965));
+    tgt.push_back(Point3d(11.1966, -8.6325, 459.5166));
+    a.CalcMotions(ref,tgt,r,t);
+    Mat_<double> R_t;
+    hconcat(r,t,R_t);
+    auto mat_print=[](Mat &a){
+        //cout<<"[";
+        for(int i=0; i<a.rows; i++)
+        {
+            for (int j = 0; j < a.cols; j++)
+                cout << fixed<<setprecision(4) << a.at<double>(i, j) << ",";
+            cout<<endl;
+        }
+    };
+    cout<<"R|t:";
+    mat_print(R_t);
     /*
     Mat camera_matrix=(Mat_<float>(3,2)<< 537.6, 0., 400,
             0., 537.6,300);
