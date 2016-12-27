@@ -11,13 +11,17 @@ namespace tracker{
         ifstream fTimes;
         unsigned int frames=0;
         // get size of frames from times.txt
+        cout<<"Read times list...";
         string strPathTimeFile = path_to_dir + "/times.txt";
-        fTimes.open(strPathTimeFile.c_str());
+        fTimes.open(strPathTimeFile);
         while (!fTimes.eof()) {
             string s;
             getline(fTimes, s);
             frames++;
+
         }
+        cout<<"done"<<endl;
+        cout<<"Read image list...";
         // make file lists
         string strPrefixLeft = path_to_dir + "/left/";
         string strPrefixRight = path_to_dir + "/right/";
@@ -31,6 +35,12 @@ namespace tracker{
             images_left[i] = strPrefixLeft + ss.str() + ".jpg";
             images_right[i] = strPrefixRight + ss.str() + ".jpg";
         }
+        cout<<"done"<<endl;
+    }
+
+    void Track::Tracking(const TrackNode &keyframe, TrackNode &current) {
+        
+
     }
 
 
