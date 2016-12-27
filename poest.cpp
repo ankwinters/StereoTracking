@@ -511,7 +511,7 @@ void ObjectTracker::Track(FeaturedImg &target,vector<DMatch> &good_matches,FEATU
 
     matcher->match(refer.key_descrips,target.key_descrips,matches);
     delete matcher;
-i
+
     //matcher.match(refer.key_descrips,target.key_descrips,matches);
 
 
