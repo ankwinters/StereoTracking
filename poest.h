@@ -72,23 +72,7 @@ private:
     double s;
 };
 
-class PnpImg
-//Img class with R t info
-{
-public:
-    /*
-    FeaturedImg(const Mat &image,const vector<KeyPoint>& points_2d,vector<int> idx,
-                const vector<Point3d>& points_3d,const Mat& points_descrip)
-            :img(image),key_pts(points_2d),matched_idx(idx),matched_3d(points_3d),key_descrips(points_3d)
-    {
 
-    }*/
-    Mat img;
-    Mat R_t;
-    //For coordinate computing
-    Point2d top_left;
-
-};
 
 class PoseEst
 {
@@ -140,20 +124,13 @@ protected:
                          FEATURE_TYPE type=ORB_FEATURE);
     bool GetMatchCoords(vector<DMatch> &matches,vector<KeyPoint> &key1,vector<KeyPoint> &key2,
                         vector<Point2d> &matched_pts_1,vector<Point2d> &matched_pts_2);
-    bool RefineKp(FeaturedImg &fimg);
 
 protected:
     bool DetectExtract(const Mat &img,vector<KeyPoint> &key_points,
-                       Mat &descrip,FEATURE_TYPE type=ORB_FEATURE, int minHessian=800);
+                       Mat &descrip,FEATURE_TYPE type=ORB_FEATURE, int minHessian=2500);
 
     bool Extract(const Mat &img, vector<KeyPoint> &key_points, Mat &descrip,
                  FEATURE_TYPE type=ORB_FEATURE);
-
-
-
-
-
-
 
 
 };
@@ -181,7 +158,7 @@ public:
      */
     //For debug
     void PrintCorners();
-    void Featuremethod(Mat &image);
+
 private:
     bool DetectObject(Mat &src_img,Mat &obj_img);
     //Find Img coords in the original image

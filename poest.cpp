@@ -5,6 +5,7 @@
 #include <iostream>
 #include <chrono>
 #include <iomanip>
+#include <cstdlib>
 
 using namespace std;
 
@@ -100,22 +101,17 @@ void BasicImageProcess::BasicMatching(Mat &img_1, Mat &img_2, int max_points,
     // TB improved
     //  Step4:Find good match
     FindGoodMatches(matches,key_img1,key_img2,max_points,good_matches);
-    /*
-    DetectExtract(img_1, key_img1, descrip_1,SIFT_FEATURE);
-    DetectExtract(img_2, key_img2, descrip_2,SIFT_FEATURE);
-    FlannBasedMatcher matcher;
-    //std::vector< DMatch > good_matches;
-    matcher.match(descrip_1,descrip_2,good_matches);
-    */
+
 
 
     Mat img_matches;
-    //drawMatches(img_2,key_imgR,img_1,key_imgL,good_matches,img_matches);
+
     drawMatches( img_1, key_img1, img_2, key_img2,
                  good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-                vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+                 vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+
     //imshow( "Good Matches", img_matches );
-    //imwrite("../matches.jpg",img_matches );
+    //imwrite("../matches1.jpg",img_matches );
 
 
     //Step5:Output the coordinates of matched points.
@@ -128,9 +124,10 @@ void BasicImageProcess::BasicMatching(FEATURE_TYPE type,Mat &img_1, Mat &img_2,
                                       vector<KeyPoint> &key_img1, vector<KeyPoint> &key_img2, Mat &descrip_1, Mat &descrip_2,
                                       vector<DMatch> &good_matches, Mat &matched_img)
 {
-    cout<<"Debug info!!!!!!!!"<<endl;
+    //cout<<"Debug info!!!!!!!!"<<endl;
     DescriptorMatcher *matcher= nullptr;
     DetectExtract(img_1, key_img1, descrip_1,type);
+    auto start=std::chrono::system_clock::now();
     DetectExtract(img_2, key_img2, descrip_2,type);
     //Step3:matching
     //cout<<"Debug info!!!!!!!!"<<endl;
@@ -151,18 +148,23 @@ void BasicImageProcess::BasicMatching(FEATURE_TYPE type,Mat &img_1, Mat &img_2,
        exit(-1);
     matcher->match(descrip_1, descrip_2, matches);
     delete matcher;
-
+    auto end=std::chrono::system_clock::now();
 
     // TB improved
     //  Step4:Find good match
     int max_points=100;
     FindGoodMatches(matches,key_img1,key_img2,max_points,good_matches,type);
-    //drawMatches(img_2,key_imgR,img_1,key_imgL,good_matches,img_matches);
+
+    //drawMatches( img_1, key_img1, img_2, key_img2,
+     //            matches, matched_img, Scalar::all(-1), Scalar::all(-1),
+     //            vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
     drawMatches( img_1, key_img1, img_2, key_img2,
                  good_matches, matched_img, Scalar::all(-1), Scalar::all(-1),
                  vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+
     //imshow( "Good Matches", matched_img);
-    //imwrite("../matches.jpg",matched_img );
+
+    return;
 
 }
 
@@ -173,11 +175,17 @@ bool BasicImageProcess::SliceImage(const Mat &input, Mat &output, Point2d &top_l
 
     cvtColor(input, output, CV_BGR2GRAY);
 
+    // * Apply simple chessboard Filter
+
+
+
+    //equalizeHist( output,output );
+
     //output=input.clone();
     top_left=Point2d(0,0);
 
 
-    //equalizeHist( output,output );
+    //
 
      //imshow("output",output);
     //rectangle(input_copy, bounding_rect,  Scalar(0,255,0),2, 8,0);
@@ -208,7 +216,7 @@ bool BasicImageProcess::FindGoodMatches(vector<DMatch> &raw_matches,const vector
     if(type==ORB_FEATURE or type==ORB_FREAK)
     {
 
-        int      dist = 30;
+        int      dist = 50;
         for (int i = 0; i < raw_matches.size(); i++)
         {
             double y1   = matches_1[i].y;
@@ -355,7 +363,7 @@ bool StereoImageProcess::StereoConstruct(FeaturedImg &left, const FeaturedImg &r
     for(size_t i=0;i<matched_points_L.size();i++)
     {
         d=matched_points_L[i].x-matched_points_R[i].x;
-        Z=baseline*f/(d*pixel_size);
+        Z=baseline*f/(d*pixel_size)+f;
         Y=pixel_size*Z*(matched_points_L[i].y-this->camera_matrix.at<double>(1,2))/f;
         X=pixel_size*Z*(matched_points_L[i].x-this->camera_matrix.at<double>(0,2))/f;
         world_points.push_back(Point3d(-X,-Y,Z));
@@ -503,7 +511,7 @@ void ObjectTracker::Track(FeaturedImg &target,vector<DMatch> &good_matches,FEATU
 
     matcher->match(refer.key_descrips,target.key_descrips,matches);
     delete matcher;
-
+i
     //matcher.match(refer.key_descrips,target.key_descrips,matches);
 
 
@@ -536,9 +544,9 @@ void PoseEst::SolvePnP(const vector<Point2d> &image_coords, const vector<Point3d
         ///*counting time*/ std::chrono::time_point<std::chrono::system_clock> start, end;
         Mat R_Rod;
         //start=std::chrono::system_clock::now();
-        //solvePnP(world_coords, image_coords, this->camera_matrix, this->disto, R_Rod, t_vec, false, CV_EPNP);
+        solvePnP(world_coords, image_coords, this->camera_matrix, this->disto, R_Rod, t_vec, false, CV_EPNP);
         //solvePnP(world_coords, image_coords, this->camera_matrix, this->disto, R_Rod, t_vec, false, CV_ITERATIVE);
-        solvePnPRansac(world_coords, image_coords, this->camera_matrix, this->disto, R_Rod, t_vec,false,500,3.0);
+        //solvePnPRansac(world_coords, image_coords, this->camera_matrix, this->disto, R_Rod, t_vec,false,500,3.0,CV_EPNP);
         //end=std::chrono::system_clock::now();
         //std::chrono::duration<double> elapsed_seconds = end-start;
         Rodrigues(R_Rod,R_mat);
@@ -561,7 +569,7 @@ void PoseEst::SolvePnP(const vector<Point2d> &image_coords, const vector<Point3d
         hconcat(R_mat,t_vec,R_t);
         cout<<endl;
         mat_print(R_t);
-
+/*
         auto repro_error=[&]()
         {
             vector<Point2d> projected;
@@ -582,7 +590,7 @@ void PoseEst::SolvePnP(const vector<Point2d> &image_coords, const vector<Point3d
         cout<<"Reprojection error:"<<repro_error()<<endl;
 
         cout<<"Camera matrix:"<<this->camera_matrix<<endl;
-
+*/
     }
 
 }
@@ -603,8 +611,12 @@ void PoseEst::PnPCheck(FeaturedImg &left,Mat &R_mat, Mat &t_vec)
         Mat R_Rod;
         vector<int> inliers;
 
+        //solvePnP(left.matched_3d,image_coords, this->camera_matrix, this->disto,
+         //              R_Rod, t_vec,false,CV_EPNP);
+
+
         solvePnPRansac(left.matched_3d, image_coords, this->camera_matrix, this->disto,
-                       R_Rod, t_vec,false,100,2.5,0.99,inliers);
+                       R_Rod, t_vec,false,100,2.5,0.99,inliers,CV_EPNP);
         //solvePnPRansac(left.matched_3d, image_coords, this->camera_matrix, this->disto,
         //               R_Rod, t_vec,false,500,3.0,0.99,inliers,CV_EPNP);
         //end=std::chrono::system_clock::now();
@@ -638,8 +650,8 @@ void PoseEst::PnPCheck(FeaturedImg &left,Mat &R_mat, Mat &t_vec)
         }
 
 
-/*
 
+/*
         //print Matrix
         auto mat_print=[](Mat &a){
             //cout<<"[";
@@ -659,6 +671,7 @@ void PoseEst::PnPCheck(FeaturedImg &left,Mat &R_mat, Mat &t_vec)
         hconcat(R_mat,t_vec,R_t);
         cout<<endl;
         mat_print(R_t);
+
 
         auto repro_error=[&](vector<Point3d> &world_coords)
         {
@@ -695,7 +708,7 @@ bool ObjectTracker::RefineMatches(const vector<DMatch> &raw_matches, vector<DMat
 {
     if(type==ORB_FEATURE or type==ORB_FREAK)
     {
-        int      dist = 30;
+        int      dist = 40;
         //Refine with hamming dist
         for (int i    = 0; i < raw_matches.size(); i++)
         {
@@ -746,6 +759,7 @@ bool ObjectTracker::CalcMotions(vector<Point3d> &ref, vector<Point3d> &tgt, Mat 
         return false;
 
     //Cannot form a line
+
 
     //Step1 : calc the centroid
     //calc the centroid of the points from previous frame & current one
@@ -917,29 +931,36 @@ bool ObjectTracker::RansacMotion(const vector<Point3d> &priv, const vector<Point
                                  int iteration, double err_threash,double inlier_percent)
 {
     assert(priv.size()==curr.size());
-    RNG _random((unsigned)time(NULL));
+
 
     vector<double> errors;
     double max_inlier_rate=inlier_percent;
     //Maybe unnecessary
     int inliers;
     double min_errors=99999999.0;
-    int max_iterations=1000000;
+    const int max_iterations=100000;
 
     //*Debug
     //vector<Point3d> best_ref;
     //vector<Point3d> best_tgt;
+    // * RNG should be initialized outside of the loop
+    RNG _random((unsigned)time(NULL));
 
     //Start Ransac
     for(int i=0;i<iteration;i++)
     {
+
+        if(iteration>=max_iterations)
+            break;
         Mat _R,_T;
         //choose 3 random items from the whole set
         errors.clear();
         inliers=0;
         int idx[3]={0,0,0};
-        while(idx[0]==idx[1] || idx[1]==idx[2] || idx[2]==idx[0])
+
+        while(idx[0]==idx[1] || idx[0]==idx[2] || idx[2]==idx[1])
         {
+
             idx[0] = _random.next() % (int) priv.size();
             idx[1] = _random.next() % (int) priv.size();
             idx[2] = _random.next() % (int) priv.size();
@@ -951,11 +972,16 @@ bool ObjectTracker::RansacMotion(const vector<Point3d> &priv, const vector<Point
             ref.push_back(priv[idx[j]]);
             tgt.push_back(curr[idx[j]]);
         }
+
         //Calc model
         if(!CalcMotions(ref,tgt,_R,_T))
         {
-            iteration++;
+
+            //* Fix 160713
+            if(iteration<max_iterations)
+                iteration++;
             continue;
+
         }
         CalcRTerror(_R,_T,priv,curr,errors);
         double sum_err=0;
@@ -970,11 +996,13 @@ bool ObjectTracker::RansacMotion(const vector<Point3d> &priv, const vector<Point
         }
         //Check if the model is well fit
 
+
         //**warning:must cast following types into double
         double rate=(double)inliers/(double)curr.size();
         //cout<<"Current ["<<i<<"] rate:"<<rate<<endl;
         if(rate>=max_inlier_rate)
         {
+
             //Good fit
             //Maybe all inliers
             if(sum_err<min_errors)
@@ -988,14 +1016,17 @@ bool ObjectTracker::RansacMotion(const vector<Point3d> &priv, const vector<Point
                 //best_tgt=tgt;
             }
         }
-        else if(iteration-i<10 && max_inlier_rate==inlier_percent && iteration<max_iterations)
+        else if(iteration<max_iterations && iteration-i<10 && max_inlier_rate==inlier_percent )
             iteration++;
 
     }
 
 
-    if(max_inlier_rate==inlier_percent && iteration==max_iterations)
+    if(max_inlier_rate==inlier_percent && iteration>=max_iterations)
+    {
+        cout<<"Times of iterations are out of range!!!Exit"<<endl;
         return false;
+    }
     cout<<"inliers rate:"<<max_inlier_rate<<" Best errors:"<<min_errors<<endl;
 
 

@@ -140,6 +140,7 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 
         imgprocess.StereoConstruct(image_L,image_R,matches_L,world_coord);
         poseEst.PnPCheck(image_L,R,t);
+        cout<<"Frame One OK."<<endl;
 
 
         imgprocess.ImageInput(imgL_2,image_L2.img,imgR_2,image_R2.img);
@@ -149,6 +150,8 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
         imgprocess.StereoConstruct(image_L2,image_R2,matches_L2,world_coord_2);
         //poseEst.SolvePnP(matches_L2,world_coord_2,R2,t2);
         poseEst.PnPCheck(image_L2,R2,t2);
+
+        cout<<"Frame Two OK."<<endl;
 
 
 
@@ -165,8 +168,10 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 
         }
 
+        cout<<"Ransac Ready!"<<endl;
 
-        tk.RansacMotion(world_coord,world_coord_2,R,t,200,8,0.6);
+
+        tk.RansacMotion(world_coord,world_coord_2,R,t,200,9,0.6);
 
 
         auto end=std::chrono::system_clock::now();
@@ -263,6 +268,28 @@ inline void ReadImage(const char *URL1,const char *URL2,Mat &img1,Mat &img2)
 
 void Test()
 {
+    StereoImageProcess imgprocess;
+
+    Mat img_matched;
+    int flag=ORB_FEATURE;
+
+    //Timer starts.
+    auto start=std::chrono::system_clock::now();
+
+    StereoImageProcess pipeline;
+    imgprocess.ImageInput(imgL,image_L.img,imgR,image_R.img);
+    imgprocess.FeaturesMatching(image_L,image_R,img_matched,flag);
+    //imshow("img_matched",img_matched);
+    imwrite("../matched.jpg",img_matched);
+
+    imgprocess.StereoConstruct(image_L,image_R,matches_L,world_coord);
+
+
+    //ChessboardGTruth gt;
+
+    //gt.FindCorners(imgR,matches_R);
+    //gt.OneFrameTruth(imgL,imgR,R,t,matches_L,matches_R,world_coord);
+    /*
     ObjectTracker a;
     Mat r,t;
     vector<Point3d> ref;
@@ -288,7 +315,6 @@ void Test()
     };
     cout<<"R|t:";
     mat_print(R_t);
-    /*
     Mat camera_matrix=(Mat_<float>(3,2)<< 537.6, 0., 400,
             0., 537.6,300);
     cout<<camera_matrix.size()<<endl;
@@ -302,12 +328,15 @@ int main( int argc, char** argv)
 
 
 
-    if( argc < 2)
+    if( argc == 3)
     {
+        ReadImage(argv[1],argv[2],imgL,imgR);
         Test();
         cout <<" Usage: poest ImageToLoadL ImageToLoadR" << endl;
         return -1;
     }
+    else if( argc != 5)
+        return -2;
     ReadImage(argv[1],argv[2],imgL,imgR);
     ReadImage(argv[3],argv[4],imgL_2,imgR_2);
 
