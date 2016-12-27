@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 2.8)
 project(poest)
-#for opencv & pcl
+#for opencv 2.4
 find_package( OpenCV REQUIRED )
 
-#
+INCLUDE_DIRECTORIES("include")
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g")
-set(SOURCE_FILES  main.cpp poest.cpp calibration.cpp calibration.h)
-#pcl required
-#link_directories(${PCL_LIBRARY_DIRS})
-#add_definitions(${PCL_DEFINITIONS})
+
+
+set(SOURCE_FILES  main.cpp poest.cpp calibration.cpp src/track.cpp)
 
 add_executable(poest ${SOURCE_FILES})
 #opencv & pcl
